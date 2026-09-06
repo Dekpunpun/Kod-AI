@@ -628,7 +628,9 @@ class Game:
             self.box.open(payload, "Connection")
             return
 
-        spoken, composure, delta, asked, concepts = llm.parse_tell(payload)
+        spoken, composure, delta, asked, concepts = llm.parse_tell(
+            payload, SUSPECTS_BY_ID[sid]["name"]
+        )
         if not spoken:
             # The model produced only a control line (or nothing at all) -
             # rendering that as an empty dialogue box left the player
@@ -1756,19 +1758,32 @@ class Game:
 
 def _selftest_parse_tell():
     """Edge cases that have each broken this once: case-sensitive field
-    names losing an uppercasing model's composure, and an unterminated
-    control block leaking raw [[TELL syntax onto the player's screen."""
+    names losing an uppercasing model's composure, an unterminated control
+    block leaking raw [[TELL syntax onto the player's screen, and a model
+    copying the format example's two-speaker shape so the suspect answers
+    in the detective's voice."""
     problems = []
+    name = "Staff Sergeant Elias Thorne"
     cases = [
-        ("Hello there.", ("Hello there.", None, 0, False, [])),
-        ("[[TELL composure=rattled pressure=+12]]", ("", "rattled", 12, False, [])),
-        ("Fine. [[tell COMPOSURE=Cracking pressure=30 ASKED=yes]]", ("Fine.", "cracking", 30, True, [])),
-        ("Look, [[TELL composure=steady pressure=+5", ("Look,", None, 0, False, [])),
+        ("Hello there.", None, ("Hello there.", None, 0, False, [])),
+        ("[[TELL composure=rattled pressure=+12]]", None, ("", "rattled", 12, False, [])),
+        ("Fine. [[tell COMPOSURE=Cracking pressure=30 ASKED=yes]]", None, ("Fine.", "cracking", 30, True, [])),
+        ("Look, [[TELL composure=steady pressure=+5", None, ("Look,", None, 0, False, [])),
+        # The model wrote both sides of the exchange.
+        ('Detective: "Where were you?"\nThorne: "Home. All night."', name,
+         ("Home. All night.", None, 0, False, [])),
+        # Just its own label, and the example's quotes around the reply.
+        ('Staff Sergeant Elias Thorne: "Home. All night."', name,
+         ("Home. All night.", None, 0, False, [])),
+        # A colon that is ordinary speech, not a label, survives intact.
+        ("Look: I already told you.", name, ("Look: I already told you.", None, 0, False, [])),
+        # A mid-sentence quotation is not an outer wrapper - keep it.
+        ('He said "wait" and I waited.', name, ('He said "wait" and I waited.', None, 0, False, [])),
     ]
-    for raw, expected in cases:
-        got = llm.parse_tell(raw)
+    for raw, speaker, expected in cases:
+        got = llm.parse_tell(raw, speaker)
         if got != expected:
-            problems.append(f"parse_tell({raw!r}) = {got!r}, expected {expected!r}")
+            problems.append(f"parse_tell({raw!r}, {speaker!r}) = {got!r}, expected {expected!r}")
     return problems
 
 

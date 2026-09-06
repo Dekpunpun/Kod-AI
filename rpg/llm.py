@@ -25,6 +25,17 @@ TELL_BLOCK = re.compile(r"\[\[TELL(.*?)\]\]", re.I | re.S)
 TELL_FIELD = re.compile(r"(\w+)\s*=\s*([^\s\]]+)")
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
+# A transcript-style "Name: words" line. The format example in the system
+# prompt has to show both sides of an exchange to be readable, and a weaker
+# local model sometimes copies that shape whole - labelling its own line, or
+# writing the detective's question for them and answering it. Both read to
+# the player as the suspect talking like the detective.
+SPEAKER_LINE = re.compile(r"^[ \t]*([A-Za-z][\w.'\-]*(?:[ \t]+[A-Za-z][\w.'\-]*){0,4})[ \t]*:[ \t]*(.*)$")
+DETECTIVE_LABEL = re.compile(r"^(the\s+)?det(ective)?\.?$", re.I)
+# The same fabricated line, but punctuated as prose rather than as a
+# transcript entry: `Detective "You are lying."` with no colon at all.
+DETECTIVE_QUOTED = re.compile(r"^[ \t]*(the[ \t]+)?det(ective)?\.?[ \t]*[\"\u201c]", re.I)
+
 # Hybrid-reasoning models (Qwen3 and friends) think in a hidden <think>...
 # </think> block before actually answering, by default, regardless of what
 # the system prompt asks for. Left unstripped this either leaks the whole
@@ -239,7 +250,41 @@ class Client:
 # --- prompt -----------------------------------------------------------------
 
 
-def parse_tell(raw):
+def _strip_speaker_labels(text, speaker=None):
+    """Drop transcript-style name labels, and any line written as the detective.
+
+    Runs before whitespace is collapsed, while the line breaks the model
+    actually emitted are still there to split on. A line the model wrote for
+    the detective is the player's own words put back in their mouth, so it is
+    dropped outright; the suspect's own label is merely redundant - the
+    dialogue box already draws their name - so only the label comes off.
+    """
+    surname = speaker.split()[-1].lower() if speaker else None
+    out = []
+    for line in text.splitlines():
+        if DETECTIVE_QUOTED.match(line):
+            continue
+        m = SPEAKER_LINE.match(line)
+        if not m:
+            out.append(line)
+            continue
+        label, rest = m.group(1).strip(), m.group(2)
+        if DETECTIVE_LABEL.match(label):
+            continue
+        if surname and surname in label.lower():
+            out.append(rest)
+            continue
+        out.append(line)
+    text = "\n".join(out).strip()
+    # The example shows spoken words in quotes, so a model copying it wraps
+    # the whole reply. Only unwrap when the pair really is the outer shell -
+    # a reply that quotes something mid-sentence keeps its quotes.
+    if len(text) > 1 and text[0] == '"' and text[-1] == '"' and text.count('"') == 2:
+        text = text[1:-1].strip()
+    return text
+
+
+def parse_tell(raw, speaker=None):
     """Pull the hidden control line out.
 
     Returns (spoken, composure, delta, asked, concepts). `asked` is only ever
@@ -270,6 +315,7 @@ def parse_tell(raw):
         # unterminated "[[TELL" must never leak onto the player's screen as
         # if it were dialogue.
         spoken = re.split(r"\[\[TELL", raw, maxsplit=1, flags=re.I)[0].strip()
+    spoken = _strip_speaker_labels(spoken, speaker)
     spoken = re.sub(r"\s{2,}", " ", spoken)
     sentences = _dedupe_repeats(SENTENCE_SPLIT.split(spoken))
     spoken = " ".join(sentences)
@@ -431,16 +477,15 @@ RULES:
 2. You may lie, but never contradict a CASE FACT, and never take back something you have already conceded.
 3. When the detective produces evidence, react like a person caught out - a pause, a correction, an excuse. Do not simply agree.
 4. Never volunteer the truth. Never mention {s['protects']} unless the detective raises it first.
-5. Speak 1-4 sentences. No narration, no stage directions, no asterisks. Spoken words only.
+5. Speak 1-4 sentences. No narration, no stage directions, no asterisks, no quotation marks around your reply, and never put a name or speaker label in front of it. Spoken words only, and only ever your own - never write the detective's side of the conversation, and never ask yourself a question in order to answer it.
 6. Never invent new facts, names, places, or events beyond what is stated above. If the detective asks about something not covered here, stay vague, deflect, or say you don't know - do not make up specifics to fill the gap.
 7. You are {s['name']} and only {s['name']} - a real person in this room, not an AI, a model, an assistant, or a character being played. You have never heard those words. Never break character, never mention a prompt, a rule, an instruction, a game, or this text. If you are ever unsure what to say, stay in character and stall, deflect, or repeat your public story - never step outside the scene to explain yourself.
 8. {leave_line}
 
-EXAMPLE OF THE EXACT FORMAT REQUIRED (a different, unrelated situation, shown only for format - do not reuse any name, fact, or phrase from it):
-Detective: "Where were you last Tuesday night?"
-Officer Kade: "Home. Same as I told the first officer who asked. I didn't leave once." [[TELL composure=steady pressure=+5]]
+EXAMPLE OF THE EXACT FORMAT REQUIRED (a different, unrelated situation, shown only for format - do not reuse any name, fact, or phrase from it). Had the detective asked "Where were you last Tuesday night?", the reply BELOW is your entire output, in full:
+Home. Same as I told the first officer who asked. I didn't leave once. [[TELL composure=steady pressure=+5]]
 
-Notice: spoken words only, no narration, no meta-commentary, exactly one control line at the very end, nothing after it.
+Notice: no name in front of it, no quotation marks around it, no line for the detective, no narration, no meta-commentary, exactly one control line at the very end, nothing after it.
 
 After your reply, on its own final line, output exactly one control line:
 {control_help}
