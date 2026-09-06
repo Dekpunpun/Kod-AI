@@ -182,6 +182,15 @@ class Client:
                 # backstop for whatever gets through anyway.
                 "frequency_penalty": 0.4,
                 "presence_penalty": 0.4,
+                # A reply that runs on into the detective's next line is the
+                # single most common way a weaker model breaks character.
+                # Cutting generation at the label costs nothing when it never
+                # appears, and saves the wasted tokens when it does. Anchored
+                # to a line start, and to the colon/quote that makes it a
+                # speaker label, so prose like "Detective work is your job"
+                # is left alone. strip_speaker_labels stays the backstop for
+                # servers that ignore `stop` and for casings not listed here.
+                "stop": ["\nDetective:", "\nDETECTIVE:", "\nDet:", "\nDetective \""],
                 # Qwen3's server-side switch for its default thinking mode.
                 # Silently ignored by any backend/model that doesn't
                 # recognise it, so this is safe to send unconditionally.
@@ -250,7 +259,7 @@ class Client:
 # --- prompt -----------------------------------------------------------------
 
 
-def _strip_speaker_labels(text, speaker=None):
+def strip_speaker_labels(text, speaker=None):
     """Drop transcript-style name labels, and any line written as the detective.
 
     Runs before whitespace is collapsed, while the line breaks the model
@@ -315,7 +324,7 @@ def parse_tell(raw, speaker=None):
         # unterminated "[[TELL" must never leak onto the player's screen as
         # if it were dialogue.
         spoken = re.split(r"\[\[TELL", raw, maxsplit=1, flags=re.I)[0].strip()
-    spoken = _strip_speaker_labels(spoken, speaker)
+    spoken = strip_speaker_labels(spoken, speaker)
     spoken = re.sub(r"\s{2,}", " ", spoken)
     sentences = _dedupe_repeats(SENTENCE_SPLIT.split(spoken))
     spoken = " ".join(sentences)

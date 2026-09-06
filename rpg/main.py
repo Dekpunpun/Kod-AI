@@ -628,9 +628,8 @@ class Game:
             self.box.open(payload, "Connection")
             return
 
-        spoken, composure, delta, asked, concepts = llm.parse_tell(
-            payload, SUSPECTS_BY_ID[sid]["name"]
-        )
+        s_name = SUSPECTS_BY_ID[sid]["name"]
+        spoken, composure, delta, asked, concepts = llm.parse_tell(payload, s_name)
         if not spoken:
             # The model produced only a control line (or nothing at all) -
             # rendering that as an empty dialogue box left the player
@@ -643,7 +642,16 @@ class Game:
             self.box.open("They start to answer, then... nothing comes out. Try asking again.", "Connection")
             return
         self._pending_evidence_id = None
-        c["history"].append({"role": "assistant", "content": payload})
+        # Store the cleaned reply, not the raw payload. A payload that broke
+        # character - a fabricated detective line, a name label - would
+        # otherwise sit in the history and be shown back to the model as its
+        # own past behaviour on every later turn, teaching it the bad shape
+        # and making the drift compound instead of staying a one-off. The
+        # control line is deliberately left in: seeing its own past ones is
+        # part of what keeps it emitting them.
+        c["history"].append(
+            {"role": "assistant", "content": llm.strip_speaker_labels(payload, s_name)}
+        )
 
         s = SUSPECTS_BY_ID[sid]
         brk = s["break"]
