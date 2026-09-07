@@ -14,7 +14,7 @@ CASE = {
     "id": "kod-ai",
     "title": "Kod AI",
     "meta": {
-        "title_lines": ("KOD", "AI"),
+        "title_lines": ("KOD AI",),
         "subtitle": "A CITY ON THE CLOCK",
         "opening": (
             "00:12. Five VSP-5 demolition charges are missing from the Special "
