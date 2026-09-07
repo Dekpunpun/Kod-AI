@@ -280,7 +280,13 @@ def strip_speaker_labels(text, speaker=None):
         label, rest = m.group(1).strip(), m.group(2)
         if DETECTIVE_LABEL.match(label):
             continue
-        if surname and surname in label.lower():
+        # A speaker label ends on the name: "Doss", "Cpl. Doss", "Corporal
+        # Wyatt Doss". Testing the last word rather than the whole label keeps
+        # a real sentence that happens to name them - "Sergeant Thorne told
+        # me: he was home" - from being read as a label and having everything
+        # before the colon deleted.
+        words = label.lower().replace(",", " ").split()
+        if surname and words and words[-1].strip(".") == surname:
             out.append(rest)
             continue
         out.append(line)
@@ -288,8 +294,12 @@ def strip_speaker_labels(text, speaker=None):
     # The example shows spoken words in quotes, so a model copying it wraps
     # the whole reply. Only unwrap when the pair really is the outer shell -
     # a reply that quotes something mid-sentence keeps its quotes.
-    if len(text) > 1 and text[0] == '"' and text[-1] == '"' and text.count('"') == 2:
-        text = text[1:-1].strip()
+    for open_q, close_q in (('"', '"'), ("\u201c", "\u201d")):
+        if len(text) > 1 and text[0] == open_q and text[-1] == close_q:
+            inner = text[1:-1]
+            if open_q not in inner and close_q not in inner:
+                text = inner.strip()
+            break
     return text
 
 

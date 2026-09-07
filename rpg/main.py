@@ -1787,6 +1787,12 @@ def _selftest_parse_tell():
         ("Look: I already told you.", name, ("Look: I already told you.", None, 0, False, [])),
         # A mid-sentence quotation is not an outer wrapper - keep it.
         ('He said "wait" and I waited.', name, ('He said "wait" and I waited.', None, 0, False, [])),
+        # Naming themselves mid-sentence is not a speaker label - the words
+        # before the colon must survive.
+        ("Sergeant Thorne told me: he was home.", name,
+         ("Sergeant Thorne told me: he was home.", None, 0, False, [])),
+        # Curly quotes wrap a reply just as straight ones do.
+        ("\u201cHome. All night.\u201d", name, ("Home. All night.", None, 0, False, [])),
     ]
     for raw, speaker, expected in cases:
         got = llm.parse_tell(raw, speaker)
