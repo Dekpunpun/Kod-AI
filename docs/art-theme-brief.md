@@ -1,4 +1,4 @@
-# The Vesper Manifest — Art & Theme Brief
+# Kod AI — Art & Theme Brief
 
 **One-line pitch:** A hardboiled military-noir detective mystery — a sergeant's
 wife goes missing four days before someone starts stealing demolition charges

@@ -29,7 +29,7 @@ SCREEN_W, SCREEN_H = VIEW_W * TILE, VIEW_H * TILE
 SCALE = 3
 FPS = 60
 
-TITLE = "The Vesper Manifest"
+TITLE = "Kod AI"
 
 # --- palette -----------------------------------------------------------------
 # A night museum: cold stone and warm lamplight, with the detective's coat the

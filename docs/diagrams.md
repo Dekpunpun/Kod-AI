@@ -1,4 +1,4 @@
-# Diagrams and Data Dictionary — The Vesper Manifest
+# Diagrams and Data Dictionary — Kod AI
 
 Every diagram below is drawn from the actual source in `rpg/`, not from the
 original design intent — file:line references are given so any diagram can be
@@ -416,7 +416,7 @@ Reference: `case.py:13-643` (`CASE` literal), `main.py:166-182`
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `id` | str | yes | Case identifier, `"the-vesper-manifest"` |
+| `id` | str | yes | Case identifier, `"kod-ai"` |
 | `title` | str | yes | Display title |
 | `meta` | dict | yes | `title_lines`, `subtitle`, `opening` text, `spawn` tile coords |
 | `victim` | dict | yes | `name`, `detail` |

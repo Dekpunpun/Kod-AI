@@ -1,4 +1,4 @@
-# Slide-rebuild prompt — The Vesper Manifest
+# Slide-rebuild prompt — Kod AI
 
 A self-contained prompt for regenerating the project-defence deck with an AI
 slide generator. Nothing here requires the AI to see the repository: every
@@ -21,7 +21,7 @@ else needs to change.
 ## Block A — short brief (Canva Magic Design)
 
 ```text
-สร้างสไลด์นำเสนอโครงงานนักศึกษา 10 หน้า ภาษาไทย หัวข้อ "The Vesper Manifest —
+สร้างสไลด์นำเสนอโครงงานนักศึกษา 10 หน้า ภาษาไทย หัวข้อ "Kod AI —
 เกมสืบสวนที่ผู้ต้องสงสัยตอบคำถามด้วย AI ที่รันบนเครื่องผู้เล่นเอง" ธีมมืดแนว
 film noir สีหลักน้ำเงินเข้ม เน้นสีเหลืองอำพัน ฟอนต์ Sarabun โครงสไลด์: ปก /
 บทคัดย่อ / ที่มาและวัตถุประสงค์ / เทคโนโลยีและทฤษฎี / งานวิจัยที่เกี่ยวข้อง /
@@ -89,7 +89,7 @@ Add a Thai title slide with these fields left blank for the presenter to fill:
 === FACT BANK — the only facts you may use ===
 
 WHAT IT IS
-- Title: The Vesper Manifest. A single-player detective RPG.
+- Title: Kod AI. A single-player detective RPG.
 - The player is a detective with one night to solve a theft of five weapons cases
   from a military vault, and must name the culprit before the night ends.
 - The distinguishing feature: the four suspects' dialogue is generated live by a
@@ -170,7 +170,7 @@ RELATED WORK (cite exactly as written; do not add others)
   The Interview (arXiv 2510.25820) | generated | cloud API | not stated
   NVIDIA ACE / Convai / Inworld | generated | cloud or on-device | not a design goal
   Ace Attorney / Her Story / Obra Dinn | authored | local | yes, by authoring
-  The Vesper Manifest (this project) | generated | fully local | yes, by mechanism
+  Kod AI (this project) | generated | fully local | yes, by mechanism
   Highlight the last row. The claim it supports: of the systems surveyed, this is
   the only one combining generated dialogue, fully local operation, and a guarantee
   that the case remains solvable.

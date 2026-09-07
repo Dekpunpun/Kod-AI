@@ -1,4 +1,4 @@
-"""Render every screen of The Vesper Manifest to a PNG, headlessly.
+"""Render every screen of Kod AI to a PNG, headlessly.
 
 Same technique as `rpg/main.py --selftest` (which already does
 `pygame.image.save(g.screen, out)`) - boot a real `Game` under the dummy SDL

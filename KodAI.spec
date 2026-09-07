@@ -1,7 +1,7 @@
 # PyInstaller build recipe. One spec, both platforms.
 #
-#   macOS    python3 -m PyInstaller VesperManifest.spec
-#   Windows  py -m PyInstaller VesperManifest.spec
+#   macOS    python3 -m PyInstaller KodAI.spec
+#   Windows  py -m PyInstaller KodAI.spec
 #
 # PyInstaller cannot cross-compile: run it on the OS you want to ship for.
 
@@ -45,7 +45,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="VesperManifest",
+    name="KodAI",
     debug=False,
     strip=False,
     upx=False,
@@ -60,15 +60,15 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="VesperManifest",
+    name="KodAI",
 )
 
 if sys.platform == "darwin":
     app = BUNDLE(
         coll,
-        name="The Vesper Manifest.app",
+        name="Kod AI.app",
         icon=icon,
-        bundle_identifier="com.harrowsreach.vespermanifest",
+        bundle_identifier="com.harrowsreach.kodai",
         info_plist={
             "CFBundleShortVersionString": "1.0.0",
             "NSHighResolutionCapable": True,

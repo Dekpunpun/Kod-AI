@@ -1,4 +1,4 @@
-# The Vesper Manifest
+# Kod AI
 
 A pixel-art detective RPG. Five military demolition charges are missing from
 Fort Callow, a sergeant's wife has vanished, and you have one night in
@@ -60,7 +60,7 @@ to **C** on how few questions it took.
 build.bat            # Windows
 ```
 
-Produces `dist/The Vesper Manifest.app` (macOS) or `dist/VesperManifest/`
+Produces `dist/Kod AI.app` (macOS) or `dist/KodAI/`
 (Windows/Linux) via PyInstaller, and runs `--selftest` against the built
 binary to confirm the font, world, and NPCs actually loaded. Windows and
 macOS builds are also produced automatically by
@@ -115,7 +115,7 @@ return so you can retry).
 | `rpg/sfx.py` | Synthesised square-wave sound effects |
 | `rpg/entities.py` | Player/NPC entity classes |
 | `rpg/settings.py` | Screen size, palette, asset path helper |
-| `VesperManifest.spec`, `build.sh`, `build.bat` | PyInstaller packaging |
+| `KodAI.spec`, `build.sh`, `build.bat` | PyInstaller packaging |
 
 ## Design references
 

@@ -1,4 +1,4 @@
-# Presentation pack — The Vesper Manifest
+# Presentation pack — Kod AI
 
 Run sheet, contingency plan, slide outline, and likely questions for the
 project defence. Everything here is checked against the actual code; the

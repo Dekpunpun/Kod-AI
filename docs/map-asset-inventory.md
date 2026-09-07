@@ -1,4 +1,4 @@
-# The Vesper Manifest — Map Asset Inventory
+# Kod AI — Map Asset Inventory
 
 Pulled directly from the game's code (`rpg/art.py`, `rpg/world.py`,
 `rpg/case.py`), not reconstructed from memory — this is the exact current

@@ -1,4 +1,4 @@
-"""The Vesper Manifest — a walking detective RPG.
+"""Kod AI — a walking detective RPG.
 
     python3 rpg/main.py
 

@@ -1,4 +1,4 @@
-# The Vesper Manifest — Project Summary
+# Kod AI — Project Summary
 
 A first-semester capstone project. This summary covers the project end to end
 across the seven sections requested, in plain English, checked against the
@@ -9,7 +9,7 @@ verified directly in the code).
 
 ## Abstract
 
-*The Vesper Manifest* is a single-player detective RPG built in Python with
+*Kod AI* is a single-player detective RPG built in Python with
 pygame. The player investigates the theft of five military demolition charges
 and the disappearance of a sergeant's wife, exploring an open city, collecting
 seven pieces of physical evidence, and interrogating four suspects before

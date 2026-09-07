@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build "The Vesper Manifest.app" on macOS (or a plain binary on Linux).
+# Build "Kod AI.app" on macOS (or a plain binary on Linux).
 # For a Windows .exe you must run build.bat on a Windows machine — PyInstaller
 # does not cross-compile.
 set -euo pipefail
@@ -12,13 +12,13 @@ echo "=== generating the icon ==="
 python3 rpg/make_icon.py
 
 echo "=== building ==="
-python3 -m PyInstaller --noconfirm --clean VesperManifest.spec
+python3 -m PyInstaller --noconfirm --clean KodAI.spec
 
 echo "=== checking the build actually runs ==="
 if [[ "$OSTYPE" == darwin* ]]; then
-  BIN="dist/The Vesper Manifest.app/Contents/MacOS/VesperManifest"
+  BIN="dist/Kod AI.app/Contents/MacOS/KodAI"
 else
-  BIN="dist/VesperManifest/VesperManifest"
+  BIN="dist/KodAI/KodAI"
 fi
 "$BIN" --selftest
 
@@ -26,8 +26,8 @@ cat <<'EOF'
 
 ============================================================
  Done.
-   macOS   dist/The Vesper Manifest.app   (double-click it)
-   Linux   dist/VesperManifest/VesperManifest
+   macOS   dist/Kod AI.app   (double-click it)
+   Linux   dist/KodAI/KodAI
  Ship the whole folder/bundle, not just the inner binary.
 ============================================================
 EOF

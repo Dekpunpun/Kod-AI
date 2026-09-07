@@ -1,5 +1,5 @@
 @echo off
-REM Build VesperManifest.exe. Run this ON WINDOWS - PyInstaller cannot
+REM Build KodAI.exe. Run this ON WINDOWS - PyInstaller cannot
 REM cross-compile, so a Mac cannot produce a .exe no matter what you pass it.
 REM
 REM Needs Python 3.10+ from python.org, "Add python.exe to PATH" ticked.
@@ -17,16 +17,16 @@ py rpg\make_icon.py || goto :failed
 
 echo.
 echo === building ===
-py -m PyInstaller --noconfirm --clean VesperManifest.spec || goto :failed
+py -m PyInstaller --noconfirm --clean KodAI.spec || goto :failed
 
 echo.
 echo === checking the build actually runs ===
-dist\VesperManifest\VesperManifest.exe --selftest || goto :failed
+dist\KodAI\KodAI.exe --selftest || goto :failed
 
 echo.
 echo ============================================================
-echo  Done.  dist\VesperManifest\VesperManifest.exe
-echo  Ship the whole dist\VesperManifest folder, not just the exe.
+echo  Done.  dist\KodAI\KodAI.exe
+echo  Ship the whole dist\KodAI folder, not just the exe.
 echo ============================================================
 pause
 exit /b 0

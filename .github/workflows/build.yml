@@ -16,13 +16,13 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact: VesperManifest-windows
-            path: dist/VesperManifest
-            check: dist/VesperManifest/VesperManifest.exe
+            artifact: KodAI-windows
+            path: dist/KodAI
+            check: dist/KodAI/KodAI.exe
           - os: macos-latest
-            artifact: VesperManifest-macos
-            path: dist/The Vesper Manifest.app
-            check: dist/The Vesper Manifest.app/Contents/MacOS/VesperManifest
+            artifact: KodAI-macos
+            path: dist/Kod AI.app
+            check: dist/Kod AI.app/Contents/MacOS/KodAI
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -41,7 +41,7 @@ jobs:
         run: python rpg/make_icon.py
 
       - name: Build
-        run: python -m PyInstaller --noconfirm --clean VesperManifest.spec
+        run: python -m PyInstaller --noconfirm --clean KodAI.spec
 
       # Renders a frame and asserts the pixel font was packaged. Without this a
       # broken build still "succeeds" and only looks wrong once you run it.
