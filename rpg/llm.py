@@ -76,8 +76,15 @@ def _resolve_base_url():
     directory cannot be read the last known address stands, and failing that
     localhost - so a player running their own LM Studio still works with no
     internet at all.
+
+    The gateway's token travels with the address for the same reason the
+    address is not compiled in: it can be rotated without anyone reinstalling.
+    Publishing it in a public file loses nothing that shipping it inside a
+    downloadable binary had not already lost - its job is to turn away scanners
+    that stumble onto the tunnel hostname, not to keep out anyone holding a
+    copy of the game.
     """
-    global BASE_URL
+    global BASE_URL, API_KEY
     if os.environ.get("LLM_URL"):
         return ""
     now = time.monotonic()
@@ -104,6 +111,11 @@ def _resolve_base_url():
     url = (entry.get("url") or "").strip()
     if url:
         BASE_URL = url.rstrip("/")
+    token = (entry.get("token") or "").strip()
+    # LLM_KEY stays authoritative: a developer pointed at their own backend
+    # must not have its credential replaced by the shared server's.
+    if token and not os.environ.get("LLM_KEY"):
+        API_KEY = token
     _directory["message"] = ""
     return ""
 

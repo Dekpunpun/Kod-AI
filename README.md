@@ -73,6 +73,13 @@ to `server.json`. Ctrl-C marks the server offline again. LM Studio must
 already be running with a chat model loaded, and *Max Concurrent Predictions*
 set to 5.
 
+`LLM_TOKEN` is published in `server.json` along with the address, so players'
+copies present the key the gateway expects. It is **not a secret** and is not
+treated as one: anyone holding a copy of the game could read it out of the
+binary regardless. Its job is to turn away the automated scanners that find
+tunnel hostnames — the real protection against overload is the gateway's slot
+limit, not the token. Rotating it is an edit to `server.json` and a restart.
+
 ## How it plays
 
 Walk Harrow's Reach and Fort Callow with WASD/arrows (hold Shift to run).

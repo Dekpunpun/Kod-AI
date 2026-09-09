@@ -32,6 +32,7 @@ p = pathlib.Path("server.json")
 d = json.loads(p.read_text())
 d["enabled"] = False
 d["url"] = ""
+d["token"] = ""
 d["message"] = "The case server is offline right now. Try again later, or run your own model - see the README."
 p.write_text(json.dumps(d, indent=2) + "\n")
 PY
@@ -68,12 +69,15 @@ done
 echo
 [ -n "$URL" ] || { echo "tunnel produced no address; see $LOG"; exit 1; }
 
-python3 - "$URL" <<'PY'
+python3 - "$URL" "$LLM_TOKEN" <<'PY'
 import json, pathlib, sys
 p = pathlib.Path("server.json")
 d = json.loads(p.read_text())
 d["enabled"] = True
 d["url"] = sys.argv[1].rstrip("/") + "/v1"
+# Published alongside the address so players' copies present the token the
+# gateway expects. Rotating it is an edit here plus a restart, not a rebuild.
+d["token"] = sys.argv[2]
 d["message"] = ""
 p.write_text(json.dumps(d, indent=2) + "\n")
 print("server.json ->", d["url"])
