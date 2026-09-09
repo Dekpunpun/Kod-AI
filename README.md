@@ -13,7 +13,7 @@ art; sound is synthesised square waves.
 ## Playing it
 
 Download the build for your platform from
-[Releases](https://github.com/Dekpunpun/Robot-project/releases) and run it.
+[Releases](https://github.com/Dekpunpun/Kod-AI/releases) and run it.
 **There is nothing to install and nothing to configure** — the suspects are
 answered by a model hosted by the project, and the game finds it on its own.
 

@@ -20,7 +20,7 @@ from settings import asset
 # Where the address of the shared model server is published. Editing that file
 # in the repository repoints every copy of the game already in players' hands -
 # no rebuild, no reinstall, no new download.
-DIRECTORY_URL = "https://raw.githubusercontent.com/Dekpunpun/Robot-project/main/server.json"
+DIRECTORY_URL = "https://raw.githubusercontent.com/Dekpunpun/Kod-AI/main/server.json"
 LOCAL_URL = "http://localhost:1234/v1"
 
 BASE_URL = (os.environ.get("LLM_URL") or LOCAL_URL).rstrip("/")
