@@ -39,9 +39,20 @@ PY
   [ -n "$TUNNEL_PID" ] && kill "$TUNNEL_PID" 2>/dev/null || true
   [ -n "$GATEWAY_PID" ] && kill "$GATEWAY_PID" 2>/dev/null || true
   echo
-  echo "Server stopped. server.json set to offline — commit and push it so"
-  echo "players see the message instead of a dead address:"
-  echo "    git commit -am 'Server offline' && git push"
+  # Marking the file offline locally does nothing for anyone: players read it
+  # from GitHub. Left unpublished, the address they keep finding is the tunnel
+  # that just died, so they get a connection error instead of the message this
+  # whole mechanism exists to deliver. An operator who asked for --push on the
+  # way up gets the same on the way down.
+  if [ "$PUSH" = "1" ] \
+     && git commit -qm "Server offline" server.json 2>/dev/null \
+     && git push -q 2>/dev/null; then
+    echo "Server stopped, and players now see the offline message."
+  else
+    echo "Server stopped. server.json set to offline — commit and push it so"
+    echo "players see the message instead of a dead address:"
+    echo "    git commit -am 'Server offline' && git push"
+  fi
 }
 trap offline EXIT INT TERM
 
@@ -84,9 +95,18 @@ print("server.json ->", d["url"])
 PY
 
 if [ "$PUSH" = "1" ]; then
-  git commit -qm "Point players at the current server address" server.json
-  git push -q
-  echo "published — players pick it up within a minute, no reinstall"
+  # Tested rather than run bare: under `set -e` a push that fails for a passing
+  # reason - stale credentials, a dropped connection, a remote that moved ahead
+  # - would abort the script and trip the exit trap, tearing down a tunnel and
+  # gateway that are working perfectly. A failed publish is worth a message,
+  # not the server.
+  if git commit -qm "Point players at the current server address" server.json \
+     && git push -q; then
+    echo "published — players pick it up within a minute, no reinstall"
+  else
+    echo "could not publish automatically — the server is up, so run this yourself:"
+    echo "    git commit -am 'Point players at the current server address' && git push"
+  fi
 else
   echo
   echo "Publish it so players can connect:"

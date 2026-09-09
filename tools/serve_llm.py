@@ -45,7 +45,12 @@ RATE_LIMIT_REQUESTS = 20
 RATE_LIMIT_WINDOW = 60.0
 
 MAX_BODY_BYTES = 256 * 1024
-MAX_TOKENS_CAP = 400
+# Above the 3500 the client asks for when it retries a reply that came back
+# empty, which is the largest request the game legitimately makes: a reasoning
+# model that spent its budget thinking needs that room to think *and* speak,
+# and clamping it lower turns the retry into a second helping of the same
+# failure. This only has to stop a caller asking for something absurd.
+MAX_TOKENS_CAP = 4000
 
 
 class Limits:
@@ -72,10 +77,13 @@ class Limits:
             if len(hits) >= RATE_LIMIT_REQUESTS:
                 return False
             hits.append(now)
-            # Without this the table grows one deque per IP that ever
-            # connected, for as long as the server stays up.
+            # Evicted by age, not by emptiness: the prune above only ever runs
+            # for the IP making the current request, so an address that called
+            # once and never came back keeps its entry forever and is never
+            # empty. Testing the newest hit is what actually collects them.
             if len(self._hits) > 4096:
-                for addr in [a for a, h in self._hits.items() if not h]:
+                stale = [a for a, h in self._hits.items() if not h or now - h[-1] > RATE_LIMIT_WINDOW]
+                for addr in stale:
                     del self._hits[addr]
             return True
 
@@ -106,6 +114,21 @@ class Handler(BaseHTTPRequestHandler):
     def _error(self, code, message):
         self._send(code, {"error": {"message": message}})
 
+    def _reject(self, code, message, unread=0):
+        """Turn a request away without stranding its body in the socket.
+
+        Keep-alive is on, so bytes left unread are parsed as the start of the
+        next request on this connection. cloudflared pools its connections to
+        the origin, so the request that then fails to parse may well belong to
+        a different player than the one who was turned away.
+        """
+        if unread > 0:
+            try:
+                self.rfile.read(unread)
+            except OSError:
+                self.close_connection = True
+        self._error(code, message)
+
     def _client_ip(self):
         # Every request arrives from the tunnel process on loopback, so the
         # socket address is the same for everyone and useless for rate
@@ -128,23 +151,40 @@ class Handler(BaseHTTPRequestHandler):
         self._handle("POST")
 
     def _handle(self, method):
+        # Settled before anything else, because every rejection below has to
+        # know how much body it is leaving behind.
+        length = 0
+        if method == "POST":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                length = -1
+            # A negative or unparseable length would otherwise reach
+            # rfile.read(-1), which blocks until the peer closes the socket -
+            # stranding this thread for as long as a scanner cares to hold the
+            # connection open. Neither is drainable, so the connection goes.
+            if length < 0:
+                self.close_connection = True
+                self._error(400, "Bad Content-Length.")
+                return
+            if length > MAX_BODY_BYTES:
+                self.close_connection = True
+                self._error(413, "Request too large.")
+                return
+
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
         if (method, path) not in ALLOWED:
-            self._error(404, "Not found.")
+            self._reject(404, "Not found.", length)
             return
         if not self._authorized():
-            self._error(401, "Bad token.")
+            self._reject(401, "Bad token.", length)
             return
         if not self.limits.rate_ok(self._client_ip()):
-            self._error(429, "Too many requests. Slow down.")
+            self._reject(429, "Too many requests. Slow down.", length)
             return
 
         body = None
         if method == "POST":
-            length = int(self.headers.get("Content-Length") or 0)
-            if length > MAX_BODY_BYTES:
-                self._error(413, "Request too large.")
-                return
             try:
                 body = self._sanitize(self.rfile.read(length))
             except ValueError as e:

@@ -354,6 +354,24 @@ class Client:
                     "smaller or non-reasoning model in LM Studio."
                 )
             self.results.put((gen, "ok", content))
+        except ServerBusy as e:
+            # The server answered, so it is reachable - just saturated. Leaving
+            # the status alone keeps the indicator honest and avoids a re-probe
+            # that would only confirm what we already know.
+            self.results.put((gen, "err", str(e)))
+        except (urllib.error.URLError, OSError) as e:
+            # The turn died at the transport, so whatever the last probe
+            # blessed is gone: the operator stopped the server, the machine
+            # slept, or the tunnel came back on a new hostname. Marking it down
+            # is what re-arms the reconnect loop in main.py, and that loop is
+            # the only thing that re-reads the directory - without this the
+            # game would keep posting to a dead address, keep showing MODEL OK,
+            # and never see a moved server or a deliberate shutdown until it
+            # was restarted. A server that is merely slow costs nothing here:
+            # the next probe puts it straight back to "ok".
+            self.status = "down"
+            self.error = f"The case server is not answering ({e.__class__.__name__})."
+            self.results.put((gen, "err", self.error))
         except Exception as e:  # noqa: BLE001
             self.results.put((gen, "err", str(e)))
         finally:
