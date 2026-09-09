@@ -71,14 +71,30 @@ machine.
 
 ### Local language model serving
 
-The game talks to a language model running locally through
+The game talks to a language model served through
 [LM Studio](https://lmstudio.ai/), which exposes an OpenAI-compatible HTTP API
-(`/v1/chat/completions`) on `localhost` (`rpg/llm.py:16-17`). No cloud API, no
-API key, no per-call cost, and no conversation data ever leaves the player's
-machine. This was chosen specifically so a mystery game's dialogue — which
+(`/v1/chat/completions`). No cloud API, no commercial API key, and no per-call
+cost. This was chosen specifically so a mystery game's dialogue — which
 must stay consistent with hidden facts the model is trusted with — never
 depends on a third-party service being available or affordable to keep
 running long-term.
+
+The same server is reached two ways, which is what makes the game distributable
+at all. A player who installs LM Studio themselves runs entirely offline on
+`localhost:1234`, and no conversation data leaves their machine. A player who
+simply downloads a build instead reaches a **single shared instance hosted by
+the project**, published through a tunnel and fronted by a small gateway
+(`tools/serve_llm.py`) that caps concurrent generations so one machine can
+serve several interrogations at once. The address is not compiled into the
+build: the client reads it from a directory file in the repository
+(`rpg/llm.py`), so the server can move, or be taken down with an explanatory
+message, without anyone reinstalling anything.
+
+The tradeoff is stated plainly in the README rather than hidden: shared-server
+players' typed questions do travel over the network to the hosting machine to
+be answered. Running a local model remains available precisely as the
+privacy-preserving option, and it is the fallback the client uses whenever the
+hosted server cannot be reached.
 
 ### Why not an existing AI-NPC platform
 
@@ -328,14 +344,30 @@ it can detect, not eliminate the underlying variance. This is stated plainly
 rather than minimized, since it is the most likely question to come up in a
 defense.
 
-### Why local-only, and what that costs
+### Why self-hosted, and what that costs
 
-Running entirely on local hardware removes cost, internet dependency, and any
-data-privacy concern — no conversation ever leaves the player's machine. The
-cost is hardware: a capable chat model needs enough memory to run alongside
-the game itself, which is why the development machine's spec (24 GB unified
-memory) is directly relevant to whether this approach is currently practical
-for an average player's computer, not just the developer's.
+Running on hardware the project controls removes per-call cost and any
+dependency on a commercial provider's pricing or availability. The cost is
+hardware: a capable chat model needs enough memory to run alongside the game
+itself, which is why the development machine's spec (24 GB unified memory) is
+directly relevant to whether this approach is practical at all.
+
+That spec is also the ceiling on how many people can play at once. One machine
+generating several replies concurrently divides a fixed memory budget between
+them, so the deployment targets **five simultaneous interrogations** and the
+gateway refuses a sixth outright — with a message telling the player to try
+again shortly — rather than letting it queue silently past the client's
+timeout. An honest refusal is better feedback than an apparent freeze, but it
+is a real ceiling, and scaling past it would mean either more machines or the
+commercial API the project deliberately avoided.
+
+The second cost is the privacy property. Fully local operation genuinely means
+no conversation data leaves the player's machine, and that remains true for
+anyone who runs their own model — which the client falls back to automatically.
+It is *not* true of the shared hosted server, where questions travel to the
+hosting machine to be answered. The distinction is documented for players in
+the README rather than glossed, since the honest claim is "local operation is
+supported and is the privacy-preserving path", not "no data ever leaves".
 
 ---
 

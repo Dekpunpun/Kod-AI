@@ -37,7 +37,7 @@ graph TD
         LLM["llm.py<br/>Client, prompt builder"]
         SET["settings.py<br/>constants"]
     end
-    EXT[("Local LLM server<br/>LM Studio / OpenAI-compatible<br/>http://localhost:1234/v1")]
+    EXT[("LLM server<br/>hosted gateway over a tunnel,<br/>or LM Studio on localhost:1234")]
 
     MAIN --> UI
     MAIN --> ENT
@@ -69,13 +69,22 @@ ASCII:
   |                   art.py -----+        |                      |
   |                                        |                      |
   +----------------------------------------|----------------------+
-                                            | HTTP (urllib, threaded)
+                                            | HTTPS (urllib, threaded)
                                             v
                           +----------------------------------+
-                          |  Local LLM server (LM Studio /    |
-                          |  OpenAI-compatible endpoint)       |
-                          |  http://localhost:1234/v1          |
+                          |  serve_llm.py gateway             |
+                          |  (5 slots, token, caps)           |
+                          |  reached over a Cloudflare tunnel |
                           +----------------------------------+
+                                            |
+                                            v
+                          +----------------------------------+
+                          |  LM Studio, localhost:1234        |
+                          +----------------------------------+
+
+  The address is not compiled in: llm.py reads server.json from the repo, so
+  the server can move without players reinstalling. LLM_URL overrides it, and
+  localhost:1234 is the fallback when the directory cannot be reached.
 ```
 
 Reference: imports at `main.py:9-25`; `llm.py:15,17` for the external

@@ -8,12 +8,23 @@
 import sys
 from pathlib import Path
 
+import certifi
+
 ROOT = Path(SPECPATH)
 RPG = ROOT / "rpg"
 
-# The font is the only file the game reads from disk. Everything else — every
+# The font is the only *game* file read from disk. Everything else — every
 # sprite, tile and sound — is generated in code at startup.
-datas = [(str(RPG / "PressStart2P.ttf"), ".")]
+#
+# certifi ships alongside it because a frozen build carries no CA bundle, and
+# CPython's compiled-in default trust path points inside the developer's own
+# Python installation. Without this, every https call — reaching the shared
+# model server at all — fails on any machine but the one that built the app,
+# and does so invisibly here. See _ssl_context() in rpg/llm.py.
+datas = [
+    (str(RPG / "PressStart2P.ttf"), "."),
+    (certifi.where(), "."),
+]
 
 icon = None
 if sys.platform == "darwin" and (RPG / "icon.icns").exists():

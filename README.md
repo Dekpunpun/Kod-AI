@@ -10,28 +10,68 @@ Everything is drawn in code — no image or audio assets. The world, sprites,
 weather, lighting and the amber police-terminal UI are all procedural pixel
 art; sound is synthesised square waves.
 
-## Running it
+## Playing it
 
-The game needs an OpenAI-compatible chat model reachable over HTTP. It
-defaults to LM Studio on `localhost:1234`.
+Download the build for your platform from
+[Releases](https://github.com/Dekpunpun/Robot-project/releases) and run it.
+**There is nothing to install and nothing to configure** — the suspects are
+answered by a model hosted by the project, and the game finds it on its own.
 
-1. Start your local server and load a chat model.
-2. Then:
+The title screen shows the connection state at the top right: a green
+`MODEL OK` means the suspects will talk. If it reads `MODEL OFFLINE`, the
+hosted server is down at the moment — you can still walk the city, search it,
+and read the whole case file; the game keeps retrying on its own and the
+suspects start talking again when it returns.
+
+> **Privacy, plainly:** when you use the hosted server, what you type to a
+> suspect is sent over the internet to the machine running the model in order
+> to be answered. Nothing is stored, but if you would rather nothing left your
+> computer at all, run your own model — see below.
+
+## Running your own model instead
+
+The game speaks to any OpenAI-compatible chat endpoint, so it works fully
+offline against a local one — no hosted server involved.
+
+1. Install [LM Studio](https://lmstudio.ai/), download a chat model, load it,
+   and start its server on `localhost:1234`.
+2. Launch the game. A local server is used automatically whenever the hosted
+   one cannot be reached.
+
+From source, or to point at some other backend:
 
 ```bash
 python3 -m pip install -r requirements.txt
 python3 rpg/main.py
 ```
 
-To point at a different backend:
-
 ```bash
-LLM_URL=http://localhost:8000 python3 rpg/main.py
+LLM_URL=http://localhost:8000/v1 python3 rpg/main.py
 ```
 
-The model is auto-detected from `/v1/models` (embedding models are skipped).
-If the model isn't reachable, the game still runs — you can walk the city and
-collect evidence — but talking to a suspect will say so rather than hang.
+`LLM_URL` overrides everything and skips the hosted lookup entirely. The model
+itself is auto-detected from `/v1/models` (embedding models are skipped).
+
+## Hosting the model for other players
+
+`server.json` in this repo is what every copy of the game reads to find the
+server, so the address can change without anybody reinstalling anything.
+Setting `"enabled": false` with a `"message"` takes the server down politely —
+players see that message instead of a connection error.
+
+To serve from your own machine:
+
+```bash
+brew install cloudflared
+LLM_TOKEN=<shared token> ./tools/start_server.sh --push
+```
+
+That starts [`tools/serve_llm.py`](tools/serve_llm.py) — a gateway that caps
+concurrent turns, so a sixth simultaneous player is told the server is busy
+rather than left waiting — opens a tunnel to it, and publishes the new address
+to `server.json`. Ctrl-C marks the server offline again. LM Studio must
+already be running with a chat model loaded, and *Max Concurrent Predictions*
+set to 5.
 
 ## How it plays
 

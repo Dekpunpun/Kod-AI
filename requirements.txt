@@ -2,3 +2,7 @@ pygame>=2.5
 numpy>=1.24
 pyinstaller>=6.0
 pillow>=10.0
+# Bundled into the build as the trust store for https. Not optional: without
+# it a packaged game cannot verify any certificate on a machine that has no
+# python.org Python installed.
+certifi>=2024.2.2

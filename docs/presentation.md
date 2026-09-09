@@ -12,10 +12,12 @@ project defence. Everything here is checked against the actual code; the
 |---|---|---|
 | 1 | LM Studio installed on the presenting laptop, with the chat model downloaded | Open LM Studio, confirm the model appears under *My Models* |
 | 2 | Server running and serving on the default port | LM Studio → *Developer* / *Local Server* → **Start** |
-| 3 | Game launches and shows a **green dot + `MODEL OK`** on the title screen | Launch the game; the badge is at the top-right (`main.py:1590`) |
-| 4 | Rehearse the run sheet below once, end to end, with a timer | — |
-| 5 | `docs/screenshots/` present on the laptop (20 PNGs) | Fallback material — see §2 |
-| 6 | Laptop on mains power, sleep disabled, notifications off | The model load is the thing that will get killed by a sleep |
+| 3 | *Max Concurrent Predictions* set to 5 | LM Studio → *Developer* → server settings. Anything less queues the audience |
+| 4 | Gateway and tunnel up, address published | `LLM_TOKEN=… ./tools/start_server.sh --push` |
+| 5 | Game launches and shows a **green dot + `MODEL OK`** on the title screen | Launch the game; the badge is at the top-right (`main.py:1590`) |
+| 6 | Rehearse the run sheet below once, end to end, with a timer | — |
+| 7 | `docs/screenshots/` present on the laptop (20 PNGs) | Fallback material — see §2 |
+| 8 | Laptop on mains power, **lid open**, sleep disabled, notifications off | `sudo pmset -a disablesleep 1`; `caffeinate` does not survive a lid close on Apple silicon, and a sleep drops every connected player at once |
 
 The model has to be **loaded**, not just downloaded. If nothing is loaded, the
 game reports `No chat model is loaded in LM Studio.` (`llm.py:131`).
@@ -105,20 +107,31 @@ This is the one failure the room can see. Handle it in this order.
 **Level 1 — the game already handles it.** If the server is down, the game does
 not crash. Talking to a suspect shows:
 
-> "They look at you and say nothing. `http://…` is not answering (…). Start LM
-> Studio and load a chat model - the game keeps trying to reconnect on its own,
-> so just try again once it's up."
+> "They look at you and say nothing. The case server is not answering (…). The
+> game keeps trying to reconnect on its own - carry on gathering evidence and
+> try again in a moment."
 
 (`main.py:449`.) The title screen shows a **red dot + `MODEL OFFLINE`**, and the
 client retries by itself every 4 seconds (`main.py:994`). **Turn this into a
 point:** the network layer degrades gracefully instead of crashing, and it
-recovers on its own once the server returns. Start LM Studio, wait a few
-seconds, walk back up to the suspect, and continue.
+recovers on its own once the server returns.
 
-**Level 2 — fix it live.** Confirm LM Studio's server is started and a chat
-model is loaded. This is nearly always the cause. Keep going while it loads —
-walking the city, examining evidence, and the whole case file work with no
-model at all.
+**Level 2 — fix it live.** In order of likelihood: LM Studio's server stopped
+or its model unloaded; the tunnel died (restart `./tools/start_server.sh`, which
+republishes the new address); or `server.json` still points at a stale address.
+Keep going while it comes back — walking the city, examining evidence, and the
+whole case file work with no model at all.
+
+**Level 2b — fall back to a local model.** `LLM_URL` overrides the hosted
+lookup entirely, so a laptop with LM Studio running can bypass the network
+completely:
+
+```bash
+LLM_URL=http://localhost:1234/v1 python3 rpg/main.py
+```
+
+This is the strongest fallback: it removes the tunnel, the directory, and the
+venue's wifi from the demo in one command.
 
 **Level 3 — present from the captures.** `docs/screenshots/` holds 20 PNGs of
 every screen in the game, rendered from the real program, including the

@@ -170,20 +170,26 @@ RELATED WORK (cite exactly as written; do not add others)
   The Interview (arXiv 2510.25820) | generated | cloud API | not stated
   NVIDIA ACE / Convai / Inworld | generated | cloud or on-device | not a design goal
   Ace Attorney / Her Story / Obra Dinn | authored | local | yes, by authoring
-  Kod AI (this project) | generated | fully local | yes, by mechanism
+  Kod AI (this project) | generated | self-hosted, local-capable | yes, by mechanism
   Highlight the last row. The claim it supports: of the systems surveyed, this is
-  the only one combining generated dialogue, fully local operation, and a guarantee
-  that the case remains solvable.
+  the only one combining generated dialogue, operation with no commercial cloud AI
+  service, and a guarantee that the case remains solvable. Say "self-hosted, and it
+  runs fully offline against a local model" rather than "fully local" — the shared
+  server that makes the download playable is on the project's own hardware, not a
+  third party's, and that is the defensible version of the claim.
 
 TECHNOLOGY
 - Python 3.14.2, pygame 2.6.1, numpy (audio synthesis), Pillow (icon generation).
-- LM Studio, or any server implementing the OpenAI chat-completions API, running on
-  localhost. Qwen 3.5 9B was the model used in testing.
+- LM Studio, or any server implementing the OpenAI chat-completions API. Qwen 3.5 9B
+  was the model used in testing.
+- Two ways to reach it: a shared instance self-hosted by the project (so a downloaded
+  build works with nothing to install), or the player's own local server, which runs
+  fully offline and is used automatically when the shared one is unreachable.
 - PyInstaller packages the game into a .exe and a .app.
 - GitHub Actions builds and self-tests on windows-latest and macos-latest; installers
   are published on GitHub Releases.
-- No cloud service is called. No internet connection is needed to play. No
-  conversation data leaves the machine, and there is no per-call cost.
+- No commercial cloud AI service is called and there is no per-call cost. Running a
+  local model keeps every conversation on the player's own machine.
 
 THEORY TO NAME
 - LLM and prompt engineering: per-suspect system prompts define personality,

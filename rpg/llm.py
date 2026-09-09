@@ -8,15 +8,104 @@ import json
 import os
 import queue
 import re
+import ssl
 import threading
+import time
 import urllib.error
 import urllib.request
 
 from case import CASE, SUSPECTS_BY_ID
+from settings import asset
 
-BASE_URL = os.environ.get("LLM_URL", "http://localhost:1234/v1").rstrip("/")
+# Where the address of the shared model server is published. Editing that file
+# in the repository repoints every copy of the game already in players' hands -
+# no rebuild, no reinstall, no new download.
+DIRECTORY_URL = "https://raw.githubusercontent.com/Dekpunpun/Robot-project/main/server.json"
+LOCAL_URL = "http://localhost:1234/v1"
+
+BASE_URL = (os.environ.get("LLM_URL") or LOCAL_URL).rstrip("/")
 API_KEY = os.environ.get("LLM_KEY", "lm-studio")
-TIMEOUT = 90
+# A turn against the shared server is a queued turn - several other players'
+# turns may be batched ahead of it, on top of the minute-plus one turn already
+# costs. Anything below that just fails requests the server is still working on.
+TIMEOUT = 240
+PROBE_TIMEOUT = 20
+
+
+class ServerBusy(Exception):
+    """Every slot on the shared server is already in use.
+
+    Carried as its own type so the wait is reported to the player as a queue -
+    something that clears on its own - rather than as a connection failure,
+    which reads like the game is broken.
+    """
+
+
+def _ssl_context():
+    """Trust roots for HTTPS.
+
+    A frozen build ships no CA bundle of its own, and CPython's compiled-in
+    default path points inside the *developer's* Python installation - a path
+    that does not exist on anyone else's machine, so certificate verification
+    fails there for every https request while working perfectly here. The
+    bundled certifi file is what makes the shared server reachable off this
+    machine at all; falling back to the system default keeps running from
+    source, where that path does resolve, exactly as it was.
+    """
+    bundled = asset("cacert.pem")
+    if os.path.exists(bundled):
+        return ssl.create_default_context(cafile=bundled)
+    return ssl.create_default_context()
+
+
+SSL_CTX = _ssl_context()
+
+# The directory lookup is deliberately slow to repeat: main.py retries the
+# connection every ~4s for as long as it is down, and that loop must not become
+# one request per tick against GitHub.
+DIRECTORY_TTL = 60
+_directory = {"at": 0.0, "message": ""}
+
+
+def _resolve_base_url():
+    """Point BASE_URL at the shared server, if there is one to point at.
+
+    Returns a message to show the player *instead* of connecting (the operator
+    has taken the server down deliberately), or "" to go ahead. LLM_URL always
+    wins, so a developer aimed at their own backend is never redirected. If the
+    directory cannot be read the last known address stands, and failing that
+    localhost - so a player running their own LM Studio still works with no
+    internet at all.
+    """
+    global BASE_URL
+    if os.environ.get("LLM_URL"):
+        return ""
+    now = time.monotonic()
+    if _directory["at"] and now - _directory["at"] < DIRECTORY_TTL:
+        return _directory["message"]
+    # Set before the fetch, not after: a directory that is failing must back
+    # off on exactly the same cadence as one that is working.
+    _directory["at"] = now
+    try:
+        # raw.githubusercontent serves max-age=300, so without busting the
+        # cache an address change stays invisible for five minutes - long
+        # enough that moving the server would look like an outage.
+        req = urllib.request.Request(
+            f"{DIRECTORY_URL}?t={int(now)}",
+            headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+        )
+        with urllib.request.urlopen(req, timeout=10, context=SSL_CTX) as r:
+            entry = json.load(r)
+    except Exception:  # noqa: BLE001 - unreachable directory just means "keep what we have"
+        return _directory["message"]
+    if not entry.get("enabled", True):
+        _directory["message"] = entry.get("message") or "The case server is offline right now."
+        return _directory["message"]
+    url = (entry.get("url") or "").strip()
+    if url:
+        BASE_URL = url.rstrip("/")
+    _directory["message"] = ""
+    return ""
 
 # The whole control block, loosely — individual key=value pairs are pulled
 # out of it separately so a model that omits a field (or a case that doesn't
@@ -85,13 +174,23 @@ def _post(path, payload):
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
     )
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT, context=SSL_CTX) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        # The gateway refuses immediately once every slot is busy rather than
+        # letting the turn queue silently until it times out - a wait the
+        # player can be told about beats four minutes of a frozen screen.
+        if e.code == 503:
+            raise ServerBusy(
+                "Someone else is being questioned right now. Give it a moment, then ask again."
+            ) from None
+        raise
 
 
 def _get(path):
     req = urllib.request.Request(BASE_URL + path, headers={"Authorization": f"Bearer {API_KEY}"})
-    with urllib.request.urlopen(req, timeout=15) as r:
+    with urllib.request.urlopen(req, timeout=PROBE_TIMEOUT, context=SSL_CTX) as r:
         return json.load(r)
 
 
@@ -136,16 +235,23 @@ class Client:
         clearing `checking` on a turn that never set it could stomp on an
         unrelated check already in flight from `check()`."""
         try:
+            offline = _resolve_base_url()
+            if offline:
+                self.status, self.error = "down", offline
+                return
             data = _get("/models")
             ids = [m["id"] for m in data.get("data", []) if _is_chat_model(m.get("id", ""))]
             if not ids:
-                self.status, self.error = "down", "No chat model is loaded in LM Studio."
+                self.status, self.error = "down", "The case server has no chat model loaded."
                 return
             self.model = self.model or ids[0]
             self.status, self.error = "ok", ""
         except Exception as e:  # noqa: BLE001 - any failure means "not reachable"
             self.status = "down"
-            self.error = f"{BASE_URL} is not answering ({e.__class__.__name__})."
+            # Deliberately without the URL. This string is shown to the player,
+            # and the shared server's address is not theirs to be handed - the
+            # exception type is the part that helps diagnose it anyway.
+            self.error = f"The case server is not answering ({e.__class__.__name__})."
 
     # --- one turn --------------------------------------------------------
 
@@ -211,7 +317,10 @@ class Client:
                 if self.status != "ok":
                     raise RuntimeError(self.error)
 
-            content, finish = self._once(messages, 0.7, 450)
+            # Sized for a shared server: several turns are generated at once,
+            # so a shorter cap clears the queue faster for everyone. RULES asks
+            # for 1-4 sentences, which fits inside this comfortably.
+            content, finish = self._once(messages, 0.7, 300)
 
             # A reasoning model that ran out of room emits nothing but its
             # scratchpad. More tokens would only buy a longer spiral, so the

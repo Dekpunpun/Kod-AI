@@ -448,10 +448,14 @@ class Game:
     def begin_interview(self, sid):
         if self.ai.status == "down":
             sfx.play("error")
+            # No instruction to go and fix a server here: the model runs on
+            # someone else's machine and the player can do nothing about it.
+            # self.ai.error already carries the operator's own message when
+            # the server has been taken down deliberately.
             self.box.open(
                 "They look at you and say nothing. " + self.ai.error +
-                " Start LM Studio and load a chat model - the game keeps trying to "
-                "reconnect on its own, so just try again once it's up.",
+                " The game keeps trying to reconnect on its own - carry on gathering "
+                "evidence and try again in a moment.",
                 "No connection",
             )
             return
@@ -559,7 +563,11 @@ class Game:
     # c["history"] itself is kept in full (the transcript view reads all of
     # it) - this only bounds what gets re-sent alongside the ~1000-token
     # system prompt, so a long interview doesn't grow the request forever.
-    HISTORY_WINDOW = 16
+    #
+    # Kept deliberately tight because the server is shared: concurrent turns
+    # divide one KV cache between them, so every message re-sent here is
+    # context taken away from whoever else is mid-interview.
+    HISTORY_WINDOW = 8
 
     def send(self, user_text, evidence=None):
         sid = self.active_suspect
