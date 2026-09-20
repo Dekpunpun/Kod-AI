@@ -104,8 +104,12 @@ BUILDINGS = [
              rooms=[(48, 5, 16, 7, "concrete")], corridor=(55, 12, 3, 3, "concrete"),
              style="military", door="door_motorpool"),
     # --- Civic district (top-left): Third Precinct + Forensics, clustered.
+    # The entrance faces south, like every other building: the door, awning
+    # and sign are painted on the south wall, and when the corridor left from
+    # the north the front of the building was a blank roof with a fake door
+    # round the back. The street that meets it is the "precinct road" below.
     Building("precinct", "THIRD PRECINCT", "HOME BASE",
-             rooms=[(6, 20, 16, 8, "wood")], corridor=(12, 19, 3, 1, "wood"),
+             rooms=[(6, 20, 16, 8, "wood")], corridor=(12, 28, 3, 1, "wood"),
              style="civic", door="door_precinct"),
     # A real room now, not a closet - big enough for the full bench/
     # microscope/cabinet/fume-hood set.
@@ -215,6 +219,9 @@ class World:
         # over={"grass"} guard skips them, and the door ends up opening onto
         # bare ground.
         self._fill(14, 11, 3, 5, "path", over={"grass"})   # lab
+        # ...and the precinct road, from the precinct's front door east to
+        # Harborview Square.
+        self._fill(12, 30, 22, 3, "path", over={"grass"})
         # Harborview Square: the plaza at the crossroads where all four
         # districts meet.
         self._fill(34, 30, 20, 12, "path", over={"grass"})
@@ -347,16 +354,23 @@ class World:
             if tx == cols[len(cols) // 2]:
                 door = building.door_key or f"door_{building.style}"
                 surf.blit(props[door], (px, wall_bottom - 26))
-            elif art.ROOF_STYLES[building.style].get("porch"):
-                # A lit lantern on one side of the door, the address plate
-                # on the other.
+            elif art.ROOF_STYLES[building.style].get("flank"):
+                # Whatever hangs either side of the door: a lantern and an
+                # address plate on the house, a blue lamp each side on the
+                # precinct. (prop key, height above the foot of the wall)
+                left, right = art.ROOF_STYLES[building.style]["flank"]
                 if tx == cols[0]:
-                    surf.blit(props["porch_lamp"], (px, wall_bottom - 22))
+                    surf.blit(props[left[0]], (px, wall_bottom - left[1]))
                 elif tx == cols[-1]:
-                    surf.blit(props["house_number"], (px, wall_bottom - 20))
+                    surf.blit(props[right[0]], (px, wall_bottom - right[1]))
+        elif tx % 3 == 1 and min(door_cols) - 1 <= tx <= max(door_cols) + 1:
+            pass  # the wall beside the door stays blank, so the door has room
         elif tx % 3 == 1:
             window = props[building.window_key or f"window_{building.style}"]
-            surf.blit(window, (px + (TILE - window.get_width()) // 2, wall_top + 8))
+            # Normally 8px down the wall, but never so low that it hangs off
+            # the foot of a thin wall band (the precinct's is one tile high).
+            y = min(wall_top + 8, wall_bottom - window.get_height())
+            surf.blit(window, (px + (TILE - window.get_width()) // 2, y))
 
     def _bake_exterior(self, building, tiles):
         """Draw one building as a pitched structure rather than a flat lid.
@@ -464,11 +478,23 @@ class World:
                 if vx in cols:
                     surf.blit(props["roof_vent"], ((vx - x0) * TILE + 2, (ry + 1 - y0) * TILE))
 
+        if pal.get("mast"):
+            # On the far slope, off to one side so it never lines up with the
+            # sign over the door.
+            mast = props["mast"]
+            mx = rx + rw - 4
+            if mx in cols:
+                surf.blit(mast, ((mx - x0) * TILE + 2, (ry + 4 - y0) * TILE + 6 - mast.get_height()))
+
         if pal.get("sign"):
-            # Hung off the eave directly over the doorway.
-            dx = building.corridor[0]
-            row = min(cols[dx]) if building._exits_south else max(cols[dx])
-            surf.blit(props["roof_sign"], ((dx - x0) * TILE - 5, (row - y0) * TILE + 4))
+            # Centred over the door and clear of it: the door leaf stands 26px
+            # above the foot of the wall, and a sign hung any lower covers half
+            # of it. The wall band is always the bottom of the column.
+            cx, _, cw, _, _ = building.corridor
+            sign = props["roof_sign"]
+            row = max(cols[cx + cw // 2])
+            surf.blit(sign, ((cx + cw // 2 - x0) * TILE + (TILE - sign.get_width()) // 2,
+                             (row - y0) * TILE - 12 - sign.get_height()))
 
     # --- furniture -----------------------------------------------------------
 
@@ -729,8 +755,11 @@ class World:
                    "otherwise, and someone has wiped the bed out with solvent - it is "
                    "the only clean thing in the building.")
         put("workbench", 49, 11, solid=True)
-        put("shelf", 48, 6, solid=True)
-        for tx in (51, 53):
+        # Steel racking, not a wooden bookshelf - nobody stores books in a
+        # vehicle bay - one at each end so the long walls are not bare.
+        put("steel_shelf", 48, 6, solid=True)
+        put("steel_shelf", 62, 6, solid=True)
+        for tx in (51, 53, 59):
             put("oil_drum", tx, 11, solid=(1, 8, 10, 7))
         put("crate", 60, 11, solid=True)
         put("pallet", 50, 6, solid=True)
@@ -785,7 +814,9 @@ class World:
         put("desk", 17, 26, solid=True)
         row("bench", (8, 17), 25, solid=True)
         put("shelf", 7, 22, solid=True)
-        put("shelf", 20, 22, solid=True)
+        # The holding cell, in the north-east corner where the east
+        # bookshelf used to stand.
+        put("jail_cell", 19, 21, solid=(0, 10, 48, 38))
         put("cabinet", 16, 21, solid=True)
         put("cooler", 6, 26, solid=True)
         put("banner", 18, 21, oy=4)
@@ -797,6 +828,13 @@ class World:
         for tx in (9, 13, 18):
             put("sconce", tx, 21, oy=8)
             lamp(tx, 22, 74)
+        # Outside the front door: the blue lamps' glow, a patrol car parked at
+        # the kerb of the precinct road, and a bush either side of the steps.
+        for tx in (12, 14):
+            lamp(tx, 27, 44, oy=13)
+        put("patrol_car", 17, 32, oy=-2, solid=(2, 8, 40, 12))
+        for tx in (9, 10, 16, 18):
+            put("bush", tx, 29, solid=(2, 6, 12, 8))
 
         # ---- 14 Milner Street: the Thorne house --------------------------------
         # Kitchen.
@@ -881,7 +919,7 @@ class World:
         ):
             put("tree", tx, ty, solid=(6, 26, 14, 10))
         for tx, ty in (
-            (24, 8), (64, 42), (28, 44), (24, 32), (58, 50), (30, 50),
+            (24, 8), (64, 42), (28, 44), (24, 33), (58, 50), (30, 50),
         ):
             put("bush", tx, ty, solid=(2, 6, 12, 8))
         for tx, ty in ((36, 44), (50, 44), (20, 65), (64, 65)):

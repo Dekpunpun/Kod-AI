@@ -680,14 +680,18 @@ ROOF_STYLES = {
     # structure reads as roof.
     "civic": dict(
         back=(50, 36, 31), front=(66, 52, 46), cap=(73, 59, 53),
-        eave=(40, 26, 21), trim=(54, 40, 35), sign=True,
+        eave=(40, 26, 21), trim=(54, 40, 35), sign=True, mast=True,
+        # The blue lamp either side of the door: the one thing every police
+        # station has, and the only colour on an otherwise dark front.
+        flank=(("police_lamp", 24), ("police_lamp", 24)),
         wall=(90, 63, 54), wall_d=(59, 41, 35), wall_l=(114, 80, 69),
         course="brick", facade_rows=1),
     # A painted family home, so it doesn't read as the fishing cabin's twin:
-    # brick-red tiles over pale clapboard, with a lit porch (`porch`).
+    # brick-red tiles over pale clapboard, with a lit porch (`flank`).
     "house": dict(
         back=(58, 30, 28), front=(84, 46, 40), cap=(96, 56, 48),
-        eave=(38, 18, 16), trim=(70, 40, 34), chimney=True, porch=True,
+        eave=(38, 18, 16), trim=(70, 40, 34), chimney=True,
+        flank=(("porch_lamp", 22), ("house_number", 20)),
         wall=(128, 116, 98), wall_d=(88, 78, 64), wall_l=(158, 146, 124),
         course="board"),
     "cabin": dict(
@@ -733,14 +737,26 @@ def facade_tile(style, seed):
 
 
 def obj_facade_window(style):
-    """A lit window. Every one of these is somebody still awake at 2am."""
+    """A lit window. Every one of these is somebody still awake at 2am.
+
+    14x14: a 12x12 frame with a stone lintel across the top, a pane that is
+    brighter at the head than the sill, drawn curtains at each side and a
+    projecting sill underneath. Kept exactly this height so it can be dropped
+    into even the precinct's 16px wall band without hanging out of it."""
     p = ROOF_STYLES[style]
-    s = _surf(12, 12)
-    _box(s, (0, 0, 12, 12), (46, 40, 36), p["wall_l"], INK)
-    pygame.draw.rect(s, LAMP, (2, 2, 8, 8))
-    pygame.draw.rect(s, GLOW, (2, 2, 8, 3))
-    pygame.draw.line(s, (58, 48, 34), (6, 2), (6, 9))
-    pygame.draw.line(s, (58, 48, 34), (2, 6), (9, 6))
+    s = _surf(14, 14)
+    _box(s, (1, 0, 12, 12), (46, 40, 36), None, None, INK)
+    pygame.draw.rect(s, p["wall_l"], (2, 1, 10, 2))  # lintel
+    pygame.draw.rect(s, p["wall_d"], (2, 3, 10, 1))
+    pane = ((3, 4, 8, 2, GLOW), (3, 6, 8, 3, LAMP), (3, 9, 8, 2, LAMP_D))
+    for x, y, w, h, colour in pane:
+        pygame.draw.rect(s, colour, (x, y, w, h))
+    pygame.draw.rect(s, (168, 112, 64), (3, 4, 1, 7))  # curtains
+    pygame.draw.rect(s, (168, 112, 64), (10, 4, 1, 7))
+    pygame.draw.line(s, (58, 48, 34), (7, 4), (7, 10))  # mullion
+    pygame.draw.line(s, (58, 48, 34), (3, 7), (10, 7))  # transom
+    pygame.draw.rect(s, p["wall_l"], (0, 12, 14, 1))  # sill, lit on top
+    pygame.draw.rect(s, INK, (0, 13, 14, 1))
     return s
 
 
@@ -800,6 +816,83 @@ def obj_house_number():
     for x, y, w, h in ((5, 2, 1, 5), (4, 3, 1, 1), (4, 6, 3, 1),          # 1
                        (8, 2, 1, 3), (10, 2, 1, 5), (8, 4, 3, 1)):         # 4
         pygame.draw.rect(s, ink, (x, y, w, h))
+    return s
+
+
+def obj_police_lamp():
+    """The blue lamp over a police station door - a globe on a bracket."""
+    s = _surf(16, 14)
+    _box(s, (6, 0, 4, 3), BRASS_D, BRASS, INK)
+    pygame.draw.rect(s, INK, (4, 3, 8, 9))
+    pygame.draw.rect(s, (46, 104, 208), (5, 4, 6, 7))
+    pygame.draw.rect(s, (110, 170, 255), (5, 4, 6, 2))
+    pygame.draw.rect(s, (188, 222, 255), (6, 5, 2, 3))
+    pygame.draw.rect(s, BRASS_D, (5, 12, 6, 2))
+    pygame.draw.rect(s, INK, (5, 12, 6, 2), 1)
+    return s
+
+
+def obj_patrol_car():
+    """A parked patrol car, black and white with a light bar on the roof."""
+    s = _surf(44, 22)
+    pygame.draw.ellipse(s, (0, 0, 0, 70), (2, 16, 40, 6))  # shadow on the road
+    _box(s, (1, 8, 42, 10), (28, 30, 38), (66, 68, 82), (14, 14, 20))  # body
+    pygame.draw.rect(s, (208, 210, 216), (13, 10, 18, 6))  # white door panel
+    pygame.draw.rect(s, (150, 152, 162), (13, 15, 18, 1))
+    pygame.draw.rect(s, (46, 104, 208), (16, 12, 12, 2))  # stripe
+    _box(s, (11, 2, 22, 8), (28, 30, 38), (66, 68, 82), (14, 14, 20))  # cab
+    pygame.draw.rect(s, (98, 128, 148), (13, 3, 8, 5))  # windows
+    pygame.draw.rect(s, (98, 128, 148), (23, 3, 8, 5))
+    pygame.draw.rect(s, INK, (19, 0, 6, 3))  # light bar
+    pygame.draw.rect(s, (208, 52, 52), (20, 0, 2, 2))
+    pygame.draw.rect(s, (60, 110, 230), (22, 0, 2, 2))
+    for wx in (5, 31):  # wheels
+        pygame.draw.rect(s, (16, 14, 18), (wx, 16, 8, 5))
+        pygame.draw.rect(s, (120, 122, 132), (wx + 3, 17, 2, 2))
+    pygame.draw.rect(s, LAMP, (0, 11, 2, 3))  # headlight
+    pygame.draw.rect(s, (200, 48, 48), (42, 11, 2, 3))  # tail light
+    return s
+
+
+def obj_jail_cell():
+    """A holding cell: a cot behind bars. The precinct's own, in the corner,
+    where anyone brought in overnight sleeps it off."""
+    s = _surf(48, 48)
+    pygame.draw.rect(s, (24, 22, 28), (0, 4, 48, 42))  # the dark inside
+    pygame.draw.rect(s, (42, 40, 46), (2, 16, 44, 26))  # its floor
+    # Cot against the back wall.
+    pygame.draw.rect(s, (72, 74, 82), (5, 20, 24, 10))
+    pygame.draw.rect(s, (110, 104, 92), (6, 21, 22, 7))
+    pygame.draw.rect(s, (156, 150, 138), (6, 21, 6, 7))  # pillow
+    pygame.draw.rect(s, INK, (5, 20, 24, 10), 1)
+    pygame.draw.rect(s, (86, 82, 76), (36, 32, 6, 6))  # bucket
+    pygame.draw.rect(s, INK, (36, 32, 6, 6), 1)
+    # Bars: a rail top and bottom, uprights between, a thicker post at each end.
+    steel, steel_l = (84, 90, 98), (140, 148, 158)
+    pygame.draw.rect(s, steel, (0, 4, 48, 3))
+    pygame.draw.rect(s, steel_l, (0, 4, 48, 1))
+    pygame.draw.rect(s, steel, (0, 42, 48, 4))
+    pygame.draw.rect(s, steel_l, (0, 42, 48, 1))
+    for x in range(4, 46, 5):
+        pygame.draw.rect(s, steel, (x, 7, 2, 35))
+        pygame.draw.rect(s, steel_l, (x, 7, 1, 35))
+    for x in (0, 46):
+        pygame.draw.rect(s, (60, 64, 72), (x, 4, 2, 42))
+    pygame.draw.rect(s, INK, (0, 4, 48, 42), 1)
+    return s
+
+
+def obj_mast():
+    """A radio mast with a red beacon, bolted to the roof."""
+    s = _surf(12, 40)
+    pygame.draw.rect(s, (52, 54, 62), (2, 35, 8, 5))
+    pygame.draw.rect(s, INK, (2, 35, 8, 5), 1)
+    pygame.draw.rect(s, (98, 102, 112), (5, 6, 2, 30))
+    for y, x, w in ((12, 1, 10), (19, 2, 8), (26, 3, 6)):  # cross arms
+        pygame.draw.rect(s, (98, 102, 112), (x, y, w, 1))
+    pygame.draw.rect(s, INK, (4, 1, 4, 5))
+    pygame.draw.rect(s, (222, 60, 60), (5, 2, 2, 3))
+    pygame.draw.rect(s, (255, 170, 160), (5, 2, 1, 1))
     return s
 
 
@@ -1904,6 +1997,10 @@ def build_objects():
         "doorway": obj_doorway(),
         "porch_lamp": obj_porch_lamp(),
         "house_number": obj_house_number(),
+        "police_lamp": obj_police_lamp(),
+        "patrol_car": obj_patrol_car(),
+        "jail_cell": obj_jail_cell(),
+        "mast": obj_mast(),
         "door_vault": obj_door_vault(),
         "door_motorpool": obj_door_motorpool(),
         "door_precinct": obj_door_precinct(),
