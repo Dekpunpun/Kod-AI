@@ -638,6 +638,7 @@ class Game:
 
         s_name = SUSPECTS_BY_ID[sid]["name"]
         spoken, composure, delta, asked, concepts = llm.parse_tell(payload, s_name)
+        spoken = llm.strip_echo(spoken, c["history"][-1]["content"])
         if not spoken:
             # The model produced only a control line (or nothing at all) -
             # rendering that as an empty dialogue box left the player
@@ -655,14 +656,21 @@ class Game:
         # otherwise sit in the history and be shown back to the model as its
         # own past behaviour on every later turn, teaching it the bad shape
         # and making the drift compound instead of staying a one-off. The
-        # control line is deliberately left in: seeing its own past ones is
-        # part of what keeps it emitting them.
-        c["history"].append(
-            {"role": "assistant", "content": llm.strip_speaker_labels(payload, s_name)}
-        )
-
+        # control line is deliberately kept - seeing its own past ones is part
+        # of what keeps it emitting them - but rebuilt from what was parsed, so
+        # a placeholder it copied verbatim never goes back in as an example.
         s = SUSPECTS_BY_ID[sid]
         brk = s["break"]
+        c["history"].append({
+            "role": "assistant",
+            "content": llm.canonical_reply(
+                spoken,
+                composure or c["composure"],
+                delta,
+                asked if brk["type"] == "evidence_plus_question" else None,
+                concepts if brk["type"] == "conversational_trigger" else None,
+            ),
+        })
         npc = self.npcs[sid]
 
         before = c["pressure"]
@@ -1801,11 +1809,37 @@ def _selftest_parse_tell():
          ("Sergeant Thorne told me: he was home.", None, 0, False, [])),
         # Curly quotes wrap a reply just as straight ones do.
         ("\u201cHome. All night.\u201d", name, ("Home. All night.", None, 0, False, [])),
+        # The model kept going after its control line: an invented next
+        # question, and its own instructions recited back.
+        ("Same as the logs. [[TELL composure=steady pressure=+1]]The audit is done.\n"
+         "You are Corporal Doss. THE TRUTH, WHICH YOU WILL NOT VOLUNTEER: he took them.",
+         name, ("Same as the logs.", "steady", 1, False, [])),
+        # Two sentences run together, and a "none" for concepts.
+        ("I saw it.You look tired. [[TELL concepts=none]]", name, ("I saw it. You look tired.", None, 0, False, [])),
+        ("The U.S. Army. [[TELL pressure=+1]]", name, ("The U.S. Army.", None, 1, False, [])),
+        # A control line up front leaves the words that follow it alone.
+        ("[[TELL composure=steady pressure=+5]] Home.", name, ("Home.", "steady", 5, False, [])),
+        # Scratchpad with no opening tag, ending in a bare closer.
+        ("I'm sorry, but I can't answer that. [[TELL pressure=+5]]\n</think>\n\n"
+         "Nothing. I was home. [[TELL composure=steady pressure=+5]]",
+         name, ("Nothing. I was home.", "steady", 5, False, [])),
     ]
     for raw, speaker, expected in cases:
         got = llm.parse_tell(raw, speaker)
         if got != expected:
             problems.append(f"parse_tell({raw!r}, {speaker!r}) = {got!r}, expected {expected!r}")
+    for reply, asked_q, expected in (
+        ("Where were you the night? Home. All night.", "Where were you the night?", "Home. All night."),
+        ("Home. Where were you the night?", "Where were you the night?", "Home. Where were you the night?"),
+        ("Yes.", "Yes.", "Yes."),
+    ):
+        got = llm.strip_echo(reply, asked_q)
+        if got != expected:
+            problems.append(f"strip_echo({reply!r}, {asked_q!r}) = {got!r}, expected {expected!r}")
+    # What goes back into history: a copied placeholder becomes a real value.
+    kept = llm.canonical_reply("Home.", "steady|rattled|cracking", 5, asked=False, concepts=["scale"])
+    if kept != "Home. [[TELL composure=steady pressure=+5 asked=no concepts=scale]]":
+        problems.append(f"canonical_reply gave {kept!r}")
     return problems
 
 

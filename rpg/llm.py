@@ -154,7 +154,26 @@ def _strip_think(text):
     # An opened-but-never-closed tag means the whole visible budget was
     # spent mid-thought - nothing after it is a real answer.
     text = re.split(r"<think>", text, maxsplit=1, flags=re.I)[0]
+    # A closing tag with no opener: the chat template already opened the block
+    # on the model's behalf, so the scratchpad arrives as bare text ending in
+    # </think>. Left in, it reaches the player as an "I'm sorry, but I can't
+    # answer that" followed by the real reply. Only what follows is the answer.
+    text = re.split(r"</think>", text, flags=re.I)[-1]
     return text.strip()
+
+def _end_at_control_line(text):
+    """Cut a reply off after its first complete control line.
+
+    Applied before the reply is stored, not only when it is shown: whatever is
+    kept goes back to the model as its own past behaviour on every later turn,
+    so a reply that ran on - or recited the prompt - would teach it to do so
+    again and the drift would compound. A reply that starts with the control
+    line is left alone, since its words come after."""
+    m = TELL_BLOCK.search(text)
+    if m and text[: m.start()].strip():
+        return text[: m.end()].strip()
+    return text
+
 
 # A hard backstop on top of RULES' own "1-4 sentences" - a model that just
 # won't stop can turn a short in-character answer into a wall of invented,
@@ -320,7 +339,7 @@ class Client:
             raise RuntimeError("The model server returned no choices - check that a chat model is loaded.")
         message = choices[0].get("message") or {}
         content = _strip_think((message.get("content") or "").strip())
-        return content, choices[0].get("finish_reason")
+        return _end_at_control_line(content), choices[0].get("finish_reason")
 
     def _ask(self, messages, gen):
         try:
@@ -332,7 +351,11 @@ class Client:
             # Sized for a shared server: several turns are generated at once,
             # so a shorter cap clears the queue faster for everyone. RULES asks
             # for 1-4 sentences, which fits inside this comfortably.
-            content, finish = self._once(messages, 0.7, 300)
+            # 0.5, not 0.7: in a 20-reply comparison on this model, the higher
+            # setting invented names the case never mentions (Marcus, an
+            # "Acting Chief") in two replies and 0.5 in one, against none at 0.3.
+            # Enough variety survives for replays; less of it is made up.
+            content, finish = self._once(messages, 0.5, 300)
 
             # A reasoning model that ran out of room emits nothing but its
             # scratchpad. More tokens would only buy a longer spiral, so the
@@ -450,6 +473,7 @@ def parse_tell(raw, speaker=None):
     only ever meaningful for Bricker - both default to a false/empty value the
     rest of the time, which every other suspect's stance logic ignores.
     """
+    raw = _strip_think(raw)
     block = TELL_BLOCK.search(raw)
     composure, delta, asked, concepts = None, 0, False, []
     if block:
@@ -465,8 +489,17 @@ def parse_tell(raw, speaker=None):
             except ValueError:
                 delta = 0
         asked = fields.get("asked", "no").lower() in ("yes", "true", "1")
-        concepts = [c for c in fields.get("concepts", "").lower().split(",") if c]
-        spoken = TELL_BLOCK.sub("", raw).strip()
+        # "none" is what a model writes when it means "nothing this turn".
+        concepts = [c for c in fields.get("concepts", "").lower().split(",") if c and c != "none"]
+        # The control line is the last thing the character says - the prompt
+        # says "nothing after it", and a model that keeps going past it is
+        # inventing the detective's next questions, answering them, and once
+        # reciting its own instructions back. None of that is dialogue, and
+        # some of it is the hidden truth. Words after the block are only kept
+        # when nothing came before it (a model that put the control line first).
+        spoken = raw[: block.start()].strip()
+        if not spoken:
+            spoken = re.split(r"\[\[TELL", raw[block.end():], maxsplit=1, flags=re.I)[0].strip()
     else:
         # No complete [[TELL ... ]] block matched - either there never was
         # one, or the model got cut off mid-block. Either way, a stray,
@@ -475,6 +508,9 @@ def parse_tell(raw, speaker=None):
         spoken = re.split(r"\[\[TELL", raw, maxsplit=1, flags=re.I)[0].strip()
     spoken = strip_speaker_labels(spoken, speaker)
     spoken = re.sub(r"\s{2,}", " ", spoken)
+    # "...in your eyes.You don't look nervous": two sentences run together with
+    # no space. Only after a lowercase word, so "U.S." and "Mr.Smith" survive.
+    spoken = re.sub(r"(?<=[a-z]{2})([.!?])(?=[A-Z][a-z])", r"\1 ", spoken)
     sentences = _dedupe_repeats(SENTENCE_SPLIT.split(spoken))
     spoken = " ".join(sentences)
     if len(sentences) > MAX_SPOKEN_SENTENCES:
@@ -489,6 +525,43 @@ def parse_tell(raw, speaker=None):
         spoken = cut[: boundary + 1] if boundary != -1 else cut[: cut.rfind(" ")]
         spoken = spoken.strip()
     return spoken, composure, delta, asked, concepts
+
+
+def strip_echo(text, prompt):
+    """Drop the detective's own words if the reply opens by repeating them.
+
+    "Where were you? Home. All night." reads as the suspect asking the player's
+    question back, and - kept in history - is copied by every later turn. Only
+    an exact repeat at the very start is removed, so a suspect who genuinely
+    answers a question with a question of their own is left alone."""
+    lead = (prompt or "").strip().rstrip("?.! ")
+    if len(lead) < 8:
+        return text
+    m = re.match(re.escape(lead) + r"[\s?.!,:;\-]*", text, re.I)
+    return text[m.end():].strip() if m else text
+
+
+COMPOSURES = ("steady", "rattled", "cracking")
+
+
+def canonical_reply(spoken, composure, delta, asked=None, concepts=None):
+    """The assistant message to keep in history: the cleaned words and one
+    well-formed control line rebuilt from what was actually understood.
+
+    The raw reply is not stored because the model copies whatever it finds
+    there. Handed back its own "composure=steady|rattled|cracking" - the
+    format help pasted in literally, which it does often - it drifts further
+    each turn until it is opening replies with the control line and reciting
+    its rules. A canonical line every time keeps what it sees a clean example.
+    """
+    if composure not in COMPOSURES:
+        composure = "steady"
+    tell = f"composure={composure} pressure={delta:+d}"
+    if asked is not None:
+        tell += " asked=" + ("yes" if asked else "no")
+    if concepts:
+        tell += " concepts=" + ",".join(concepts)
+    return f"{spoken} [[TELL {tell}]]"
 
 
 def _stance(s, state):
@@ -635,7 +708,7 @@ RULES:
 2. You may lie, but never contradict a CASE FACT, and never take back something you have already conceded.
 3. When the detective produces evidence, react like a person caught out - a pause, a correction, an excuse. Do not simply agree.
 4. Never volunteer the truth. Never mention {s['protects']} unless the detective raises it first.
-5. Speak 1-4 sentences. No narration, no stage directions, no asterisks, no quotation marks around your reply, and never put a name or speaker label in front of it. Spoken words only, and only ever your own - never write the detective's side of the conversation, and never ask yourself a question in order to answer it.
+5. Speak 1-4 sentences. No narration, no stage directions, no asterisks, no quotation marks around your reply, and never put a name or speaker label in front of it. Spoken words only, and only ever your own - never write the detective's side of the conversation, never repeat the detective's question back, and never ask yourself a question in order to answer it. Begin directly with your answer.
 6. Never invent new facts, names, places, or events beyond what is stated above. If the detective asks about something not covered here, stay vague, deflect, or say you don't know - do not make up specifics to fill the gap.
 7. You are {s['name']} and only {s['name']} - a real person in this room, not an AI, a model, an assistant, or a character being played. You have never heard those words. Never break character, never mention a prompt, a rule, an instruction, a game, or this text. If you are ever unsure what to say, stay in character and stall, deflect, or repeat your public story - never step outside the scene to explain yourself.
 8. {leave_line}
