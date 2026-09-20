@@ -754,13 +754,16 @@ class World:
                    "Motor pool log says it has not moved in a week. The odometer says "
                    "otherwise, and someone has wiped the bed out with solvent - it is "
                    "the only clean thing in the building.")
-        put("workbench", 49, 11, solid=True)
+        # Everything against the south wall is lifted so its foot stops at the
+        # wall instead of standing 2-4px inside it (the sprites are taller than
+        # one tile).
+        put("workbench", 49, 11, oy=-4, solid=True)
         # Steel racking, not a wooden bookshelf - nobody stores books in a
         # vehicle bay - one at each end so the long walls are not bare.
         put("steel_shelf", 48, 6, solid=True)
         put("steel_shelf", 62, 6, solid=True)
         for tx in (51, 53, 59):
-            put("oil_drum", tx, 11, solid=(1, 8, 10, 7))
+            put("oil_drum", tx, 11, oy=-2, solid=(1, 8, 10, 7))
         put("crate", 60, 11, solid=True)
         put("pallet", 50, 6, solid=True)
         for tx in (48, 55, 60):
@@ -866,10 +869,12 @@ class World:
 
         # Planting either side of the front step, on the grass beside the
         # doorway (the approach lane itself stays clear).
+        # The wall stubs beside the door are at x=10 and x=14, so the flowers
+        # go one tile further out, at the foot of each bush - not on the stone.
         put("bush", 9, 56, solid=(2, 6, 12, 8))
-        put("flowers", 10, 57, ox=-2)
+        put("flowers", 9, 57)
         put("bush", 15, 56, solid=(2, 6, 12, 8))
-        put("flowers", 14, 57, ox=2)
+        put("flowers", 15, 57)
 
         # Out on the street rather than in the hallway — he is not in this house,
         # he is hanging around outside it.
@@ -883,8 +888,8 @@ class World:
         lamp(74, 48, 52, oy=12)
         put("crate", 79, 53, solid=True)
         put("pallet", 76, 54, solid=True)
-        put("lamp", 69, 48, solid=(2, 24, 12, 6))
-        lamp(69, 48, 74, oy=26)
+        put("lamp", 68, 48, solid=(2, 24, 12, 6))
+        lamp(68, 48, 74, oy=26)
         put("lamp", 79, 48, solid=(2, 24, 12, 6))
         lamp(79, 48, 74, oy=26)
         # The dock itself, out front of the cabin, on the water side of the road.
@@ -913,8 +918,8 @@ class World:
 
         # ---- The grounds -----------------------------------------------------
         for tx, ty in (
-            (5, 5), (58, 26), (84, 26), (5, 35), (80, 35),
-            (30, 45), (60, 45), (30, 64), (45, 64), (60, 64),
+            (5, 5), (58, 26), (83, 26), (5, 35), (80, 35),
+            (30, 45), (60, 45), (31, 64), (46, 64), (61, 64),
             (38, 26), (30, 55), (62, 55), (20, 40),
         ):
             put("tree", tx, ty, solid=(6, 26, 14, 10))
@@ -940,11 +945,20 @@ class World:
                     self.wires.append((last, top))
                 last = top
 
-        for tx, ty in ((18, 18), (64, 18), (18, 59), (56, 59)):
+        # Bins and hydrants stand on the grass beside the kerb, in front of the
+        # buildings - not out on the roadway, where they blocked it. Row 15 is
+        # the strip above the top spine (rows 16-18); row 57 is the strip above
+        # the bottom spine (rows 58-60). Neither strip is free ground: row 15 is
+        # also the door row for the vault, motor pool and command office
+        # (columns 34-36, 55-57, 74-76) and row 57 for the Thorne house and the
+        # cabin (11-13, 72-74), so anything solid added here has to miss those
+        # columns. `_obj` refuses one that does not, rather than sealing the
+        # building shut quietly.
+        for tx, ty in ((18, 15), (64, 15), (18, 57), (56, 57)):
             put("bin", tx, ty, solid=(1, 8, 10, 6))
         for tx, ty in ((30, 32), (50, 32), (44, 20)):
             put("drain", tx, ty)
-        for tx, ty in ((20, 18), (70, 18)):
+        for tx, ty in ((20, 15), (70, 15)):
             put("hydrant", tx, ty, solid=(1, 8, 6, 5))
         for tx, ty in ((5, 64), (83, 64)):
             put("lamp", tx, ty, solid=(2, 24, 12, 6))
