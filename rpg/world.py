@@ -115,8 +115,12 @@ BUILDINGS = [
     # --- Rural district (bottom-left): the Thorne house, alone. Held well
     # clear of the bottom edge: the hedge border eats the last three rows,
     # and a door whose outside step lands on hedge seals the building shut.
+    # Two rooms, kitchen and garage, with a wall of their own between them:
+    # the garage starts a tile further along so the sealing pass walls the
+    # gap, and the 1x2 room at x=17 cuts a doorway back through that wall.
     Building("milner", "14 MILNER STREET", "THE THORNE HOUSE",
-             rooms=[(8, 44, 9, 11, "wood"), (17, 44, 8, 11, "marble_d")],
+             rooms=[(8, 44, 9, 11, "wood"), (18, 44, 7, 11, "concrete"),
+                    (17, 49, 1, 2, "concrete")],
              corridor=(11, 55, 3, 2, "wood"), style="house"),
     # --- Coastal district (bottom-right): the fishing cabin, alone.
     Building("saltrow", "SALT ROW, DOCK 4", "THE FISHING CABIN",
@@ -339,12 +343,20 @@ class World:
         """
         props = art.objects()
         if tx in door_cols:
-            if tx == sorted(door_cols)[len(door_cols) // 2]:
+            cols = sorted(door_cols)
+            if tx == cols[len(cols) // 2]:
                 door = building.door_key or f"door_{building.style}"
                 surf.blit(props[door], (px, wall_bottom - 26))
+            elif art.ROOF_STYLES[building.style].get("porch"):
+                # A lit lantern on one side of the door, the address plate
+                # on the other.
+                if tx == cols[0]:
+                    surf.blit(props["porch_lamp"], (px, wall_bottom - 22))
+                elif tx == cols[-1]:
+                    surf.blit(props["house_number"], (px, wall_bottom - 20))
         elif tx % 3 == 1:
-            window = building.window_key or f"window_{building.style}"
-            surf.blit(props[window], (px + 2, wall_top + 8))
+            window = props[building.window_key or f"window_{building.style}"]
+            surf.blit(window, (px + (TILE - window.get_width()) // 2, wall_top + 8))
 
     def _bake_exterior(self, building, tiles):
         """Draw one building as a pitched structure rather than a flat lid.
@@ -798,9 +810,14 @@ class World:
         put("sconce", 12, 44, oy=6)
         lamp(12, 45, 64)
 
-        # Garage.
-        put("crate", 19, 46, solid=True)
+        # Garage. A working one: a bench with the tools on it, and the paint
+        # shelf the burner phone is tucked behind (its `found_text` says so).
+        put("doorway", 17, 49, pad=-32)  # the door from the kitchen
+        put("workbench", 18, 46, solid=True)
+        put("crate", 20, 46, solid=True)
         put("crate", 22, 46, solid=True)
+        put("steel_shelf", 23, 46, solid=True)
+        put("oil_drum", 24, 52, ox=2, solid=True)
         put("pallet", 20, 52, solid=True)
         phone = put("burner_phone", 23, 48, pad=-4)
         self._look(phone, "Behind the paint shelf", EVIDENCE_BY_ID["burner-phone"]["found_text"], evidence="burner-phone")
@@ -808,6 +825,13 @@ class World:
         self._look(photo, "A photo, face down", EVIDENCE_BY_ID["proof-of-life-photo"]["found_text"], evidence="proof-of-life-photo")
         put("lamp", 18, 52, solid=(2, 24, 12, 6))
         lamp(18, 52, 68, oy=26)
+
+        # Planting either side of the front step, on the grass beside the
+        # doorway (the approach lane itself stays clear).
+        put("bush", 9, 56, solid=(2, 6, 12, 8))
+        put("flowers", 10, 57, ox=-2)
+        put("bush", 15, 56, solid=(2, 6, 12, 8))
+        put("flowers", 14, 57, ox=2)
 
         # Out on the street rather than in the hallway — he is not in this house,
         # he is hanging around outside it.

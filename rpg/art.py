@@ -683,10 +683,12 @@ ROOF_STYLES = {
         eave=(40, 26, 21), trim=(54, 40, 35), sign=True,
         wall=(90, 63, 54), wall_d=(59, 41, 35), wall_l=(114, 80, 69),
         course="brick", facade_rows=1),
+    # A painted family home, so it doesn't read as the fishing cabin's twin:
+    # brick-red tiles over pale clapboard, with a lit porch (`porch`).
     "house": dict(
-        back=(34, 24, 17), front=(50, 40, 32), cap=(57, 47, 39),
-        eave=(24, 14, 7), trim=(38, 28, 21), chimney=True,
-        wall=(74, 58, 44), wall_d=(48, 38, 29), wall_l=(94, 74, 56),
+        back=(58, 30, 28), front=(84, 46, 40), cap=(96, 56, 48),
+        eave=(38, 18, 16), trim=(70, 40, 34), chimney=True, porch=True,
+        wall=(128, 116, 98), wall_d=(88, 78, 64), wall_l=(158, 146, 124),
         course="board"),
     "cabin": dict(
         back=(28, 21, 14), front=(44, 37, 29), cap=(51, 44, 36),
@@ -742,6 +744,65 @@ def obj_facade_window(style):
     return s
 
 
+def obj_house_window():
+    """The Thorne house's window: a lit pane between two painted shutters,
+    with a sill under it. A full tile wide, so the facade centres it."""
+    p = ROOF_STYLES["house"]
+    shutter, shutter_d = (52, 92, 76), (32, 62, 50)
+    s = _surf(16, 14)
+    for x in (0, 13):
+        _box(s, (x, 0, 3, 12), shutter, None, shutter_d)
+        for y in (3, 6, 9):  # louvre slats
+            pygame.draw.line(s, shutter_d, (x, y), (x + 2, y))
+    _box(s, (3, 0, 10, 12), (46, 40, 36), p["wall_l"], INK)
+    pygame.draw.rect(s, LAMP, (5, 2, 6, 8))
+    pygame.draw.rect(s, GLOW, (5, 2, 6, 3))
+    pygame.draw.line(s, (58, 48, 34), (8, 2), (8, 9))
+    pygame.draw.line(s, (58, 48, 34), (5, 6), (10, 6))
+    pygame.draw.rect(s, p["wall_l"], (2, 12, 12, 2))  # sill
+    pygame.draw.rect(s, INK, (2, 13, 12, 1))
+    return s
+
+
+def obj_doorway():
+    """The door between the Thorne kitchen and garage, seen from above: a
+    timber jamb at each end of the gap in the wall, a worn threshold across
+    the floor, and the leaf standing open into the garage. 32x32, two tiles
+    tall, to fill the 1x2 opening the wall is cut with."""
+    s = _surf(32, 32)
+    for y in (0, 29):  # jambs
+        _box(s, (0, y, 16, 3), WOOD, WOOD_L, WOOD_D)
+    _box(s, (6, 3, 4, 26), WOOD_D, None, None, None)  # threshold
+    pygame.draw.line(s, WOOD, (7, 3), (7, 28))
+    # The leaf, hinged at the top jamb and swung open into the garage.
+    _box(s, (2, 1, 27, 4), (116, 78, 50), (146, 104, 68), (74, 50, 32))
+    pygame.draw.rect(s, BRASS, (25, 2, 2, 2))  # knob
+    pygame.draw.rect(s, BRASS_D, (2, 0, 3, 2))  # hinge
+    return s
+
+
+def obj_porch_lamp():
+    """A lantern by the front door, the only lamp on the house left burning."""
+    s = _surf(16, 14)
+    _box(s, (6, 0, 4, 2), BRASS_D, BRASS, INK)
+    _box(s, (5, 2, 6, 8), LAMP, GLOW, LAMP_D)
+    pygame.draw.rect(s, BRASS_D, (5, 10, 6, 2))
+    pygame.draw.rect(s, INK, (5, 10, 6, 2), 1)
+    return s
+
+
+def obj_house_number():
+    """A brass plate reading 14, drawn pixel by pixel: the address of the
+    house the whole case starts from."""
+    s = _surf(16, 10)
+    _box(s, (3, 0, 10, 9), BRASS_D, BRASS, INK)
+    ink = (34, 26, 12)
+    for x, y, w, h in ((5, 2, 1, 5), (4, 3, 1, 1), (4, 6, 3, 1),          # 1
+                       (8, 2, 1, 3), (10, 2, 1, 5), (8, 4, 3, 1)):         # 4
+        pygame.draw.rect(s, ink, (x, y, w, h))
+    return s
+
+
 def obj_facade_door(style):
     """The way in. A panelled timber door on the houses and the precinct, a
     steel one with a wired vision panel on the fort and the lab — the same
@@ -768,6 +829,8 @@ def obj_facade_door(style):
         pygame.draw.rect(s, (86, 90, 92), (3, 17, 10, 1))
     else:
         leaf, dark, light = (116, 78, 50), (74, 50, 32), (146, 104, 68)
+        if style == "house":  # a painted front door, not bare timber
+            leaf, dark, light = (52, 92, 76), (32, 62, 50), (78, 128, 106)
         pygame.draw.rect(s, leaf, (2, 3, 12, 20))
         pygame.draw.rect(s, light, (2, 3, 12, 1))
         for y in (5, 14):  # two raised panels
@@ -1837,6 +1900,10 @@ def build_objects():
         "hydrant": obj_hydrant(),
         **{f"window_{s}": obj_facade_window(s) for s in ROOF_STYLES},
         **{f"door_{s}": obj_facade_door(s) for s in ROOF_STYLES},
+        "window_house": obj_house_window(),
+        "doorway": obj_doorway(),
+        "porch_lamp": obj_porch_lamp(),
+        "house_number": obj_house_number(),
         "door_vault": obj_door_vault(),
         "door_motorpool": obj_door_motorpool(),
         "door_precinct": obj_door_precinct(),
