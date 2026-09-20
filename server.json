@@ -1,6 +1,6 @@
 {
-  "enabled": true,
-  "url": "https://venture-resources-turner-livestock.trycloudflare.com/v1",
-  "token": "mytoken",
-  "message": ""
+  "enabled": false,
+  "url": "",
+  "token": "",
+  "message": "The case server is offline right now. Try again later, or run your own model - see the README."
 }
