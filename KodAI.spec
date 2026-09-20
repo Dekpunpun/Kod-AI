@@ -81,7 +81,7 @@ if sys.platform == "darwin":
         icon=icon,
         bundle_identifier="com.harrowsreach.kodai",
         info_plist={
-            "CFBundleShortVersionString": "1.3.2",
+            "CFBundleShortVersionString": "1.3.3",
             "NSHighResolutionCapable": True,
             # The game talks to LM Studio on localhost over plain HTTP.
             "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},

@@ -637,8 +637,9 @@ class Game:
             return
 
         s_name = SUSPECTS_BY_ID[sid]["name"]
-        spoken, composure, delta, asked, concepts = llm.parse_tell(payload, s_name)
-        spoken = llm.strip_echo(spoken, c["history"][-1]["content"])
+        spoken, composure, delta, asked, concepts = llm.parse_tell(
+            payload, s_name, c["history"][-1]["content"]
+        )
         if not spoken:
             # The model produced only a control line (or nothing at all) -
             # rendering that as an empty dialogue box left the player
@@ -1836,6 +1837,15 @@ def _selftest_parse_tell():
         got = llm.strip_echo(reply, asked_q)
         if got != expected:
             problems.append(f"strip_echo({reply!r}, {asked_q!r}) = {got!r}, expected {expected!r}")
+    # The echo comes off before the caps, so it cannot cost the answer a sentence.
+    q = "Where were you the night?"
+    got = llm.parse_tell(q + " Home. Alone. All night. Nobody saw. [[TELL pressure=+1]]", name, q)[0]
+    if got != "Home. Alone. All night. Nobody saw.":
+        problems.append(f"parse_tell echo before cap gave {got!r}")
+    # A turn with no concept keeps the field, as "none", and reads back as empty.
+    kept = llm.canonical_reply("Fine.", "steady", 0, concepts=[])
+    if kept != "Fine. [[TELL composure=steady pressure=+0 concepts=none]]" or llm.parse_tell(kept)[4] != []:
+        problems.append(f"canonical_reply empty concepts gave {kept!r}")
     # What goes back into history: a copied placeholder becomes a real value.
     kept = llm.canonical_reply("Home.", "steady|rattled|cracking", 5, asked=False, concepts=["scale"])
     if kept != "Home. [[TELL composure=steady pressure=+5 asked=no concepts=scale]]":

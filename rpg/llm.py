@@ -359,8 +359,10 @@ class Client:
 
             # A reasoning model that ran out of room emits nothing but its
             # scratchpad. More tokens would only buy a longer spiral, so the
-            # retry leans on a blunt instruction instead.
-            if not content and finish == "length":
+            # retry leans on a blunt instruction instead. It also covers a
+            # reply that ended cleanly (finish=stop) but was all scratchpad
+            # ending in a bare </think>, which strips down to nothing too.
+            if not content:
                 nudge = {
                     "role": "system",
                     "content": (
@@ -465,8 +467,12 @@ def strip_speaker_labels(text, speaker=None):
     return text
 
 
-def parse_tell(raw, speaker=None):
+def parse_tell(raw, speaker=None, prompt=None):
     """Pull the hidden control line out.
+
+    `prompt` is the detective's line this reply answers; if the reply opens by
+    repeating it, that repeat is dropped *before* the sentence and length caps,
+    so it cannot use up part of the budget meant for the answer.
 
     Returns (spoken, composure, delta, asked, concepts). `asked` is only ever
     meaningful for the two evidence_plus_question suspects, and `concepts` is
@@ -511,6 +517,7 @@ def parse_tell(raw, speaker=None):
     # "...in your eyes.You don't look nervous": two sentences run together with
     # no space. Only after a lowercase word, so "U.S." and "Mr.Smith" survive.
     spoken = re.sub(r"(?<=[a-z]{2})([.!?])(?=[A-Z][a-z])", r"\1 ", spoken)
+    spoken = strip_echo(spoken, prompt)
     sentences = _dedupe_repeats(SENTENCE_SPLIT.split(spoken))
     spoken = " ".join(sentences)
     if len(sentences) > MAX_SPOKEN_SENTENCES:
@@ -559,8 +566,10 @@ def canonical_reply(spoken, composure, delta, asked=None, concepts=None):
     tell = f"composure={composure} pressure={delta:+d}"
     if asked is not None:
         tell += " asked=" + ("yes" if asked else "no")
-    if concepts:
-        tell += " concepts=" + ",".join(concepts)
+    if concepts is not None:
+        # "none" when empty, so a turn with no concept still shows the model
+        # the field it is meant to fill in. parse_tell reads "none" as empty.
+        tell += " concepts=" + (",".join(concepts) or "none")
     return f"{spoken} [[TELL {tell}]]"
 
 
